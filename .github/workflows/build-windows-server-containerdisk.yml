@@ -10,7 +10,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/windows-server-2022-iso
+  IMAGE_NAME: ${{ github.repository_owner }}/windows-server-2022-eval-iso
 
 jobs:
   build:
@@ -48,5 +48,5 @@ jobs:
       - name: Build and push Docker image
         working-directory: containerdisk-windows-server
         run: |
-          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022 .
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022
+          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022-eval .
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022-eval

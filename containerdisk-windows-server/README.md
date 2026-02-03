@@ -1,6 +1,8 @@
-# Windows Server 2022 ContainerDisk
+# Windows Server 2022 Evaluation ContainerDisk
 
-A minimal container image containing the Windows Server 2022 ISO for use as a ContainerDisk.
+A minimal container image containing the Windows Server 2022 **Evaluation** ISO for use as a ContainerDisk.
+
+> **Note:** This contains a 180-day evaluation license. Not for production use.
 
 ## Automated Build
 
@@ -30,13 +32,13 @@ Place the ISO file in this directory before building.
 ## Build
 
 ```bash
-docker build -t ghcr.io/00o-sh/windows-server-2022-iso:ltsc2022 .
+docker build -t ghcr.io/00o-sh/windows-server-2022-eval-iso:ltsc2022-eval .
 ```
 
 ## Push
 
 ```bash
-docker push ghcr.io/00o-sh/windows-server-2022-iso:ltsc2022
+docker push ghcr.io/00o-sh/windows-server-2022-eval-iso:ltsc2022-eval
 ```
 
 ## Notes
