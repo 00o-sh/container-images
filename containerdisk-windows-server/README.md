@@ -2,6 +2,15 @@
 
 A minimal container image containing the Windows Server 2022 ISO for use as a ContainerDisk.
 
+## Automated Build
+
+This image is built automatically via GitHub Actions:
+- Triggers on push to `main` or manual dispatch
+- Downloads ISO directly from Microsoft
+- Pushes to `ghcr.io`
+
+To trigger manually: **Actions** → **Build Windows Server 2022 ContainerDisk** → **Run workflow**
+
 ## Structure
 
 ```
