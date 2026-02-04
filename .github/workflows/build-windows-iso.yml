@@ -37,9 +37,9 @@ jobs:
           elif [ "${{ github.event.inputs.version }}" == "2022" ]; then
             MATRIX='{"include":[{"version":"2022","tag":"ltsc2022-eval","url":"https://go.microsoft.com/fwlink/p/?LinkID=2195280&clcid=0x409&culture=en-us&country=US","cache_key":"v2"}]}'
           elif [ "${{ github.event.inputs.version }}" == "2025" ]; then
-            MATRIX='{"include":[{"version":"2025","tag":"ltsc2025-eval","url":"https://go.microsoft.com/fwlink/?linkid=2293500","cache_key":"v1"}]}'
+            MATRIX='{"include":[{"version":"2025","tag":"ltsc2025-eval","url":"https://software-static.download.prss.microsoft.com/dbazure/998969d5-f34g-4e03-ac9d-1f9786c66749/26100.32230.260111-0550.lt_release_svc_refresh_SERVER_EVAL_x64FRE_en-us.iso","cache_key":"v4"}]}'
           else
-            MATRIX='{"include":[{"version":"2019","tag":"ltsc2019-eval","url":"https://go.microsoft.com/fwlink/p/?LinkID=2195167&clcid=0x409&culture=en-us&country=US","cache_key":"v1"},{"version":"2022","tag":"ltsc2022-eval","url":"https://go.microsoft.com/fwlink/p/?LinkID=2195280&clcid=0x409&culture=en-us&country=US","cache_key":"v2"},{"version":"2025","tag":"ltsc2025-eval","url":"https://go.microsoft.com/fwlink/?linkid=2293500","cache_key":"v1"}]}'
+            MATRIX='{"include":[{"version":"2019","tag":"ltsc2019-eval","url":"https://go.microsoft.com/fwlink/p/?LinkID=2195167&clcid=0x409&culture=en-us&country=US","cache_key":"v1"},{"version":"2022","tag":"ltsc2022-eval","url":"https://go.microsoft.com/fwlink/p/?LinkID=2195280&clcid=0x409&culture=en-us&country=US","cache_key":"v2"},{"version":"2025","tag":"ltsc2025-eval","url":"https://software-static.download.prss.microsoft.com/dbazure/998969d5-f34g-4e03-ac9d-1f9786c66749/26100.32230.260111-0550.lt_release_svc_refresh_SERVER_EVAL_x64FRE_en-us.iso","cache_key":"v4"}]}'
           fi
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
 
@@ -68,6 +68,15 @@ jobs:
         run: |
           echo "Downloading Windows Server ${{ matrix.version }} Evaluation ISO..."
           curl -L -o windows-server-${{ matrix.version }}.iso "${{ matrix.url }}"
+
+          # Validate ISO size (should be >1GB, not a 403 error page)
+          SIZE=$(stat -c%s "windows-server-${{ matrix.version }}.iso")
+          if [ "$SIZE" -lt 1000000000 ]; then
+            echo "ERROR: Downloaded file is only $SIZE bytes. Expected >1GB."
+            echo "Microsoft blocks downloads from cloud IPs. Use cached ISO or self-hosted runner."
+            rm -f windows-server-${{ matrix.version }}.iso
+            exit 1
+          fi
           ls -lh windows-server-${{ matrix.version }}.iso
 
   build-original:
@@ -92,8 +101,16 @@ jobs:
           path: windows-server-${{ matrix.version }}.iso
           key: windows-server-${{ matrix.version }}-eval-iso-${{ matrix.cache_key }}
 
-      - name: Move ISO to build context
-        run: mv windows-server-${{ matrix.version }}.iso containerdisk-windows-server/SERVER_EVAL.iso
+      - name: Validate and move ISO to build context
+        run: |
+          # Validate ISO size before processing
+          SIZE=$(stat -c%s "windows-server-${{ matrix.version }}.iso")
+          if [ "$SIZE" -lt 1000000000 ]; then
+            echo "ERROR: ISO is only $SIZE bytes. Cache may be corrupted."
+            echo "Clear cache key 'windows-server-${{ matrix.version }}-eval-iso-${{ matrix.cache_key }}' and re-run."
+            exit 1
+          fi
+          mv windows-server-${{ matrix.version }}.iso containerdisk-windows-server/SERVER_EVAL.iso
 
       - name: Log in to Container Registry
         uses: docker/login-action@v3
@@ -117,9 +134,16 @@ jobs:
 
           # Output for Renovate - extract digest from push output
           DIGEST=$(grep -oP 'digest: \Ksha256:[a-f0-9]+' push.log || docker inspect --format='{{index .RepoDigests 0}}' ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }} | cut -d'@' -f2)
-          IMAGE_WITH_DIGEST="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}@${DIGEST}"
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}"
+          IMAGE_WITH_DIGEST="${IMAGE_TAG}@${DIGEST}"
 
           echo "## Windows Server ${{ matrix.version }} ISO" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "${IMAGE_TAG}" >> $GITHUB_STEP_SUMMARY
+          echo "${IMAGE_WITH_DIGEST}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Renovate:" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "# renovate: datasource=docker depName=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}" >> $GITHUB_STEP_SUMMARY
           echo "image: ${IMAGE_WITH_DIGEST}" >> $GITHUB_STEP_SUMMARY
@@ -147,8 +171,16 @@ jobs:
           path: windows-server-${{ matrix.version }}.iso
           key: windows-server-${{ matrix.version }}-eval-iso-${{ matrix.cache_key }}
 
-      - name: Move ISO to build context
-        run: mv windows-server-${{ matrix.version }}.iso containerdisk-windows-server/SERVER_EVAL.iso
+      - name: Validate and move ISO to build context
+        run: |
+          # Validate ISO size before processing
+          SIZE=$(stat -c%s "windows-server-${{ matrix.version }}.iso")
+          if [ "$SIZE" -lt 1000000000 ]; then
+            echo "ERROR: ISO is only $SIZE bytes. Cache may be corrupted."
+            echo "Clear cache key 'windows-server-${{ matrix.version }}-eval-iso-${{ matrix.cache_key }}' and re-run."
+            exit 1
+          fi
+          mv windows-server-${{ matrix.version }}.iso containerdisk-windows-server/SERVER_EVAL.iso
 
       - name: Install ISO tools
         run: |
@@ -226,9 +258,16 @@ jobs:
 
           # Output for Renovate - extract digest from push output
           DIGEST=$(grep -oP 'digest: \Ksha256:[a-f0-9]+' push.log || docker inspect --format='{{index .RepoDigests 0}}' ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}-np | cut -d'@' -f2)
-          IMAGE_WITH_DIGEST="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}-np@${DIGEST}"
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}-np"
+          IMAGE_WITH_DIGEST="${IMAGE_TAG}@${DIGEST}"
 
           echo "## Windows Server ${{ matrix.version }} ISO (No-Prompt)" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "${IMAGE_TAG}" >> $GITHUB_STEP_SUMMARY
+          echo "${IMAGE_WITH_DIGEST}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Renovate:" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "# renovate: datasource=docker depName=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}" >> $GITHUB_STEP_SUMMARY
           echo "image: ${IMAGE_WITH_DIGEST}" >> $GITHUB_STEP_SUMMARY
