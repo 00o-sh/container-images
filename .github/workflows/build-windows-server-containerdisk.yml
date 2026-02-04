@@ -38,6 +38,47 @@ jobs:
             "https://go.microsoft.com/fwlink/p/?LinkID=2195280&clcid=0x409&culture=en-us&country=US"
           ls -lh SERVER_EVAL_x64FRE_en-us.iso
 
+      - name: Install ISO tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xorriso
+
+      - name: Extract and customize ISO
+        working-directory: containerdisk-windows-server
+        run: |
+          # Extract ISO contents
+          xorriso -osirrox on -indev SERVER_EVAL_x64FRE_en-us.iso -extract / iso_contents
+
+          # Add autounattend.xml to root of ISO
+          cp autounattend.xml iso_contents/
+
+          # Remove original ISO to save space
+          rm SERVER_EVAL_x64FRE_en-us.iso
+
+          ls -la iso_contents/
+
+      - name: Repack ISO with unattended config
+        working-directory: containerdisk-windows-server
+        run: |
+          # Create new ISO with both BIOS and UEFI boot support
+          xorriso -as mkisofs \
+            -iso-level 3 \
+            -full-iso9660-filenames \
+            -volid "WS2022_EVAL" \
+            -eltorito-boot boot/etfsboot.com \
+            -no-emul-boot \
+            -boot-load-size 8 \
+            -eltorito-alt-boot \
+            -eltorito-boot efi/microsoft/boot/efisys.bin \
+            -no-emul-boot \
+            -output SERVER_EVAL_x64FRE_en-us.iso \
+            iso_contents
+
+          # Clean up extracted contents
+          rm -rf iso_contents
+
+          ls -lh SERVER_EVAL_x64FRE_en-us.iso
+
       - name: Log in to Container Registry
         uses: docker/login-action@v3
         with:
