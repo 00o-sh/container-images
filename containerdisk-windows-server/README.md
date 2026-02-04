@@ -23,7 +23,8 @@ Container images for deploying Windows Server Evaluation editions in KubeVirt.
 
 | Tag | Description |
 |-----|-------------|
-| `ltsc2022-eval` | VirtIO drivers + autounattend.xml (works with all versions) |
+| `server` | VirtIO drivers + autounattend.xml for Windows Server |
+| `client` | VirtIO drivers + autounattend.xml for Windows 10/11 (future) |
 
 ```bash
 # Windows Server images (~5.2GB each)
@@ -37,7 +38,7 @@ docker pull ghcr.io/00o-sh/windows-server:ltsc2022-eval-np
 docker pull ghcr.io/00o-sh/windows-server:ltsc2025-eval-np
 
 # VirtIO drivers (~700MB)
-docker pull ghcr.io/00o-sh/windows-drivers:ltsc2022-eval
+docker pull ghcr.io/00o-sh/windows-drivers:server
 ```
 
 ## Usage in KubeVirt
@@ -64,7 +65,7 @@ spec:
             image: ghcr.io/00o-sh/windows-server:ltsc2022-eval-np  # Use -np for automated boot
         - name: drivers-iso
           containerDisk:
-            image: ghcr.io/00o-sh/windows-drivers:ltsc2022-eval
+            image: ghcr.io/00o-sh/windows-drivers:server
 ```
 
 Windows Setup will automatically:
