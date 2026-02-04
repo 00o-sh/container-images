@@ -8,8 +8,11 @@ Container images for deploying Windows Server 2022 Evaluation in KubeVirt.
 
 | Image | Description | Size |
 |-------|-------------|------|
-| `ghcr.io/00o-sh/windows-server:ltsc2022-eval` | Windows Server 2022 ISO (bootable) | ~5.2GB |
+| `ghcr.io/00o-sh/windows-server:ltsc2022-eval` | Windows Server 2022 ISO (original) | ~5.2GB |
+| `ghcr.io/00o-sh/windows-server:ltsc2022-eval-np` | Windows Server 2022 ISO (no-prompt EFI) | ~5.2GB |
 | `ghcr.io/00o-sh/windows-drivers:ltsc2022-eval` | VirtIO drivers + autounattend.xml | ~700MB |
+
+**No-prompt (`-np`) version:** Skips "Press any key to boot from CD" for fully automated EFI boot.
 
 ## Usage in KubeVirt
 
@@ -32,7 +35,7 @@ spec:
       volumes:
         - name: windows-iso
           containerDisk:
-            image: ghcr.io/00o-sh/windows-server:ltsc2022-eval
+            image: ghcr.io/00o-sh/windows-server:ltsc2022-eval-np  # Use -np for automated boot
         - name: drivers-iso
           containerDisk:
             image: ghcr.io/00o-sh/windows-drivers:ltsc2022-eval

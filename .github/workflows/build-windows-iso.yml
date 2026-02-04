@@ -53,14 +53,77 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push Windows ISO image
+      - name: Build and push Windows ISO image (original)
         working-directory: containerdisk-windows-server
         run: |
           docker build -f Dockerfile.windows -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022-eval .
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022-eval
 
-          # Get and display image digest
           DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022-eval)
-          echo "## Image Published" >> $GITHUB_STEP_SUMMARY
+          echo "## Original ISO Image" >> $GITHUB_STEP_SUMMARY
           echo "**Image:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022-eval\`" >> $GITHUB_STEP_SUMMARY
           echo "**Digest:** \`${DIGEST}\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Install ISO tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xorriso
+
+      - name: Create no-prompt ISO
+        working-directory: containerdisk-windows-server
+        run: |
+          # Extract ISO
+          xorriso -osirrox on -indev SERVER_EVAL_x64FRE_en-us.iso -extract / iso_np
+          chmod -R u+rwX iso_np/
+
+          # Replace EFI bootloaders with no-prompt versions
+          if [ -f "iso_np/efi/microsoft/boot/efisys_noprompt.bin" ]; then
+            cp iso_np/efi/microsoft/boot/efisys_noprompt.bin iso_np/efi/microsoft/boot/efisys.bin
+            echo "Replaced efisys.bin with no-prompt version"
+          fi
+
+          if [ -f "iso_np/efi/microsoft/boot/cdboot_noprompt.efi" ]; then
+            cp iso_np/efi/microsoft/boot/cdboot_noprompt.efi iso_np/efi/microsoft/boot/cdboot.efi
+            echo "Replaced cdboot.efi with no-prompt version"
+          fi
+
+          # Get original volume ID
+          VOLID=$(xorriso -indev SERVER_EVAL_x64FRE_en-us.iso -pvd_info 2>&1 | grep "Volume Id" | cut -d":" -f2 | xargs)
+
+          # Repack ISO with EFI boot support
+          xorriso -as mkisofs \
+            -iso-level 3 \
+            -full-iso9660-filenames \
+            -volid "${VOLID}" \
+            -eltorito-boot boot/etfsboot.com \
+            -no-emul-boot \
+            -boot-load-size 8 \
+            -eltorito-alt-boot \
+            -eltorito-boot efi/microsoft/boot/efisys.bin \
+            -no-emul-boot \
+            -o SERVER_EVAL_noprompt.iso \
+            iso_np/
+
+          rm -rf iso_np/
+          ls -lh SERVER_EVAL_noprompt.iso
+
+      - name: Build and push no-prompt ISO image
+        working-directory: containerdisk-windows-server
+        run: |
+          # Build with no-prompt ISO
+          cat > Dockerfile.noprompt << 'EOF'
+          FROM scratch
+          ADD SERVER_EVAL_noprompt.iso /disk/disk.img
+          EOF
+
+          docker build -f Dockerfile.noprompt -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022-eval-np .
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022-eval-np
+
+          rm -f Dockerfile.noprompt SERVER_EVAL_noprompt.iso
+
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022-eval-np)
+          echo "## No-Prompt ISO Image" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022-eval-np\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Digest:** \`${DIGEST}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "*No-prompt version skips 'Press any key to boot from CD' for automated EFI boot*" >> $GITHUB_STEP_SUMMARY
