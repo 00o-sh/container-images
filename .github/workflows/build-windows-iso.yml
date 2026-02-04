@@ -1,7 +1,18 @@
-name: Build Windows Server 2022 ISO
+name: Build Windows Server ISO
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Windows Server version to build'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - '2019'
+          - '2022'
+          - '2025'
   push:
     branches:
       - main
@@ -13,58 +24,80 @@ env:
   IMAGE_NAME: ${{ github.repository_owner }}/windows-server
 
 jobs:
-  download:
+  matrix-setup:
     runs-on: ubuntu-latest
     outputs:
-      cache-hit: ${{ steps.cache-windows-iso.outputs.cache-hit }}
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
-      - name: Cache Windows Server ISO
-        id: cache-windows-iso
+      - name: Set up build matrix
+        id: set-matrix
+        run: |
+          if [ "${{ github.event.inputs.version }}" == "2019" ]; then
+            MATRIX='{"include":[{"version":"2019","tag":"ltsc2019-eval","url":"https://go.microsoft.com/fwlink/p/?LinkID=2195167&clcid=0x409&culture=en-us&country=US","cache_key":"v1"}]}'
+          elif [ "${{ github.event.inputs.version }}" == "2022" ]; then
+            MATRIX='{"include":[{"version":"2022","tag":"ltsc2022-eval","url":"https://go.microsoft.com/fwlink/p/?LinkID=2195280&clcid=0x409&culture=en-us&country=US","cache_key":"v2"}]}'
+          elif [ "${{ github.event.inputs.version }}" == "2025" ]; then
+            MATRIX='{"include":[{"version":"2025","tag":"ltsc2025-eval","url":"https://go.microsoft.com/fwlink/?linkid=2293500","cache_key":"v1"}]}'
+          else
+            MATRIX='{"include":[
+              {"version":"2019","tag":"ltsc2019-eval","url":"https://go.microsoft.com/fwlink/p/?LinkID=2195167&clcid=0x409&culture=en-us&country=US","cache_key":"v1"},
+              {"version":"2022","tag":"ltsc2022-eval","url":"https://go.microsoft.com/fwlink/p/?LinkID=2195280&clcid=0x409&culture=en-us&country=US","cache_key":"v2"},
+              {"version":"2025","tag":"ltsc2025-eval","url":"https://go.microsoft.com/fwlink/?linkid=2293500","cache_key":"v1"}
+            ]}'
+          fi
+          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+
+  download:
+    needs: matrix-setup
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJson(needs.matrix-setup.outputs.matrix) }}
+      fail-fast: false
+    steps:
+      - name: Cache Windows Server ${{ matrix.version }} ISO
+        id: cache-iso
         uses: actions/cache@v4
         with:
-          path: SERVER_EVAL_x64FRE_en-us.iso
-          key: windows-server-2022-eval-iso-v2
+          path: windows-server-${{ matrix.version }}.iso
+          key: windows-server-${{ matrix.version }}-eval-iso-${{ matrix.cache_key }}
 
       - name: Free up disk space
-        if: steps.cache-windows-iso.outputs.cache-hit != 'true'
+        if: steps.cache-iso.outputs.cache-hit != 'true'
         run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
           df -h
 
-      - name: Download Windows Server 2022 ISO
-        if: steps.cache-windows-iso.outputs.cache-hit != 'true'
+      - name: Download Windows Server ${{ matrix.version }} ISO
+        if: steps.cache-iso.outputs.cache-hit != 'true'
         run: |
-          echo "Downloading Windows Server 2022 Evaluation ISO..."
-          curl -L -o SERVER_EVAL_x64FRE_en-us.iso \
-            "https://go.microsoft.com/fwlink/p/?LinkID=2195280&clcid=0x409&culture=en-us&country=US"
-          ls -lh SERVER_EVAL_x64FRE_en-us.iso
+          echo "Downloading Windows Server ${{ matrix.version }} Evaluation ISO..."
+          curl -L -o windows-server-${{ matrix.version }}.iso "${{ matrix.url }}"
+          ls -lh windows-server-${{ matrix.version }}.iso
 
   build-original:
-    needs: download
+    needs: [matrix-setup, download]
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    strategy:
+      matrix: ${{ fromJson(needs.matrix-setup.outputs.matrix) }}
+      fail-fast: false
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Free up disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
 
-      - name: Restore Windows Server ISO from cache
+      - name: Restore Windows Server ${{ matrix.version }} ISO from cache
         uses: actions/cache@v4
         with:
-          path: SERVER_EVAL_x64FRE_en-us.iso
-          key: windows-server-2022-eval-iso-v2
+          path: windows-server-${{ matrix.version }}.iso
+          key: windows-server-${{ matrix.version }}-eval-iso-${{ matrix.cache_key }}
 
       - name: Move ISO to build context
-        run: mv SERVER_EVAL_x64FRE_en-us.iso containerdisk-windows-server/
+        run: mv windows-server-${{ matrix.version }}.iso containerdisk-windows-server/SERVER_EVAL.iso
 
       - name: Log in to Container Registry
         uses: docker/login-action@v3
@@ -73,53 +106,54 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push Windows ISO image
+      - name: Build and push Windows Server ${{ matrix.version }} ISO image
         working-directory: containerdisk-windows-server
         run: |
           docker build -f Dockerfile.windows \
+            --build-arg ISO_FILE=SERVER_EVAL.iso \
+            --label "org.opencontainers.image.title=Windows Server ${{ matrix.version }} Evaluation ISO" \
+            --label "org.opencontainers.image.description=Windows Server ${{ matrix.version }} LTSC Evaluation ISO for KubeVirt ContainerDisk. 180-day evaluation license." \
             --label "org.opencontainers.image.created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
             --label "org.opencontainers.image.revision=${{ github.sha }}" \
-            --label "org.opencontainers.image.version=ltsc2022-eval" \
-            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022-eval .
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022-eval
+            --label "org.opencontainers.image.version=${{ matrix.tag }}" \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }} .
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}
 
-          # Get digest and format for Renovate compatibility (image:tag@sha256:...)
-          DIGEST_FULL=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022-eval)
+          # Output for Renovate
+          DIGEST_FULL=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }})
           SHA=$(echo "$DIGEST_FULL" | cut -d'@' -f2)
-          IMAGE_WITH_DIGEST="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022-eval@${SHA}"
+          IMAGE_WITH_DIGEST="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}@${SHA}"
 
-          echo "## Original ISO Image" >> $GITHUB_STEP_SUMMARY
-          echo "**Image:** \`${IMAGE_WITH_DIGEST}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Windows Server ${{ matrix.version }} ISO" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "# renovate: datasource=docker depName=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}" >> $GITHUB_STEP_SUMMARY
           echo "image: ${IMAGE_WITH_DIGEST}" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
   build-noprompt:
-    needs: download
+    needs: [matrix-setup, download]
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    strategy:
+      matrix: ${{ fromJson(needs.matrix-setup.outputs.matrix) }}
+      fail-fast: false
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Free up disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
 
-      - name: Restore Windows Server ISO from cache
+      - name: Restore Windows Server ${{ matrix.version }} ISO from cache
         uses: actions/cache@v4
         with:
-          path: SERVER_EVAL_x64FRE_en-us.iso
-          key: windows-server-2022-eval-iso-v2
+          path: windows-server-${{ matrix.version }}.iso
+          key: windows-server-${{ matrix.version }}-eval-iso-${{ matrix.cache_key }}
 
       - name: Move ISO to build context
-        run: mv SERVER_EVAL_x64FRE_en-us.iso containerdisk-windows-server/
+        run: mv windows-server-${{ matrix.version }}.iso containerdisk-windows-server/SERVER_EVAL.iso
 
       - name: Install ISO tools
         run: |
@@ -130,7 +164,7 @@ jobs:
         working-directory: containerdisk-windows-server
         run: |
           # Extract ISO using 7z (handles UDF better than xorriso)
-          7z x SERVER_EVAL_x64FRE_en-us.iso -oiso_np
+          7z x SERVER_EVAL.iso -oiso_np
           chmod -R u+rwX iso_np/
 
           # List boot files to verify extraction
@@ -149,7 +183,7 @@ jobs:
           fi
 
           # Get original volume ID
-          VOLID=$(xorriso -indev SERVER_EVAL_x64FRE_en-us.iso -pvd_info 2>&1 | grep "Volume Id" | cut -d":" -f2 | xargs)
+          VOLID=$(xorriso -indev SERVER_EVAL.iso -pvd_info 2>&1 | grep "Volume Id" | cut -d":" -f2 | xargs)
 
           # Repack ISO with EFI boot support
           xorriso -as mkisofs \
@@ -178,35 +212,31 @@ jobs:
       - name: Build and push no-prompt ISO image
         working-directory: containerdisk-windows-server
         run: |
-          cat > Dockerfile.noprompt << 'EOF'
+          cat > Dockerfile.noprompt << EOF
           FROM scratch
-          LABEL org.opencontainers.image.title="Windows Server 2022 Evaluation ISO (No-Prompt EFI)"
-          LABEL org.opencontainers.image.description="Windows Server 2022 LTSC Evaluation ISO with no-prompt EFI bootloader for automated KubeVirt installations. 180-day evaluation license."
+          LABEL org.opencontainers.image.title="Windows Server ${{ matrix.version }} Evaluation ISO (No-Prompt EFI)"
+          LABEL org.opencontainers.image.description="Windows Server ${{ matrix.version }} LTSC Evaluation ISO with no-prompt EFI bootloader for automated KubeVirt installations."
           LABEL org.opencontainers.image.vendor="00o-sh"
           LABEL org.opencontainers.image.licenses="Proprietary"
           LABEL org.opencontainers.image.source="https://github.com/00o-sh/container-images"
-          LABEL org.opencontainers.image.documentation="https://github.com/00o-sh/container-images/tree/main/containerdisk-windows-server"
           ADD SERVER_EVAL_noprompt.iso /disk/disk.img
           EOF
 
           docker build -f Dockerfile.noprompt \
             --label "org.opencontainers.image.created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
             --label "org.opencontainers.image.revision=${{ github.sha }}" \
-            --label "org.opencontainers.image.version=ltsc2022-eval-np" \
-            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022-eval-np .
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022-eval-np
+            --label "org.opencontainers.image.version=${{ matrix.tag }}-np" \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}-np .
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}-np
 
-          # Get digest and format for Renovate compatibility (image:tag@sha256:...)
-          DIGEST_FULL=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022-eval-np)
+          # Output for Renovate
+          DIGEST_FULL=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}-np)
           SHA=$(echo "$DIGEST_FULL" | cut -d'@' -f2)
-          IMAGE_WITH_DIGEST="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022-eval-np@${SHA}"
+          IMAGE_WITH_DIGEST="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}-np@${SHA}"
 
-          echo "## No-Prompt ISO Image" >> $GITHUB_STEP_SUMMARY
-          echo "**Image:** \`${IMAGE_WITH_DIGEST}\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Windows Server ${{ matrix.version }} ISO (No-Prompt)" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "# renovate: datasource=docker depName=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}" >> $GITHUB_STEP_SUMMARY
           echo "image: ${IMAGE_WITH_DIGEST}" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "*No-prompt version skips 'Press any key to boot from CD' for automated EFI boot*" >> $GITHUB_STEP_SUMMARY
+          echo "*No-prompt version skips 'Press any key to boot from CD'*" >> $GITHUB_STEP_SUMMARY

@@ -1,18 +1,44 @@
-# Windows Server 2022 Evaluation ContainerDisk
+# Windows Server Evaluation ContainerDisk
 
-Container images for deploying Windows Server 2022 Evaluation in KubeVirt.
+Container images for deploying Windows Server Evaluation editions in KubeVirt.
 
-> **Note:** This contains a 180-day evaluation license. Not for production use.
+> **Note:** These contain 180-day evaluation licenses. Not for production use.
 
 ## Images
 
-| Image | Description | Size |
-|-------|-------------|------|
-| `ghcr.io/00o-sh/windows-server:ltsc2022-eval` | Windows Server 2022 ISO (original) | ~5.2GB |
-| `ghcr.io/00o-sh/windows-server:ltsc2022-eval-np` | Windows Server 2022 ISO (no-prompt EFI) | ~5.2GB |
-| `ghcr.io/00o-sh/windows-drivers:ltsc2022-eval` | VirtIO drivers + autounattend.xml | ~700MB |
+### Windows Server ISOs
 
-**No-prompt (`-np`) version:** Skips "Press any key to boot from CD" for fully automated EFI boot.
+| Version | Tag | Description |
+|---------|-----|-------------|
+| 2019 | `ltsc2019-eval` | Windows Server 2019 LTSC Evaluation |
+| 2019 | `ltsc2019-eval-np` | Windows Server 2019 (no-prompt EFI) |
+| 2022 | `ltsc2022-eval` | Windows Server 2022 LTSC Evaluation |
+| 2022 | `ltsc2022-eval-np` | Windows Server 2022 (no-prompt EFI) |
+| 2025 | `ltsc2025-eval` | Windows Server 2025 LTSC Evaluation |
+| 2025 | `ltsc2025-eval-np` | Windows Server 2025 (no-prompt EFI) |
+
+**No-prompt (`-np`) versions:** Skip "Press any key to boot from CD" for fully automated EFI boot.
+
+### VirtIO Drivers
+
+| Tag | Description |
+|-----|-------------|
+| `ltsc2022-eval` | VirtIO drivers + autounattend.xml (works with all versions) |
+
+```bash
+# Windows Server images (~5.2GB each)
+docker pull ghcr.io/00o-sh/windows-server:ltsc2019-eval
+docker pull ghcr.io/00o-sh/windows-server:ltsc2022-eval
+docker pull ghcr.io/00o-sh/windows-server:ltsc2025-eval
+
+# No-prompt versions for automated boot
+docker pull ghcr.io/00o-sh/windows-server:ltsc2019-eval-np
+docker pull ghcr.io/00o-sh/windows-server:ltsc2022-eval-np
+docker pull ghcr.io/00o-sh/windows-server:ltsc2025-eval-np
+
+# VirtIO drivers (~700MB)
+docker pull ghcr.io/00o-sh/windows-drivers:ltsc2022-eval
+```
 
 ## Usage in KubeVirt
 
@@ -47,20 +73,22 @@ Windows Setup will automatically:
 3. Load VirtIO drivers during installation
 4. Install VirtIO guest tools on first login
 
-## Automated Builds
+## Workflows
 
-Two separate GitHub Actions workflows:
+### Build Windows Server ISO
+- **Trigger:** Manual dispatch or push to `containerdisk-windows-server/Dockerfile.windows`
+- **Input:** Select specific version (2019, 2022, 2025) or build all
+- **Output:** Original + no-prompt images for selected versions
 
-- **Build Windows Server 2022 ISO** - Triggers on `Dockerfile.windows` changes
-- **Build Windows VirtIO Drivers ISO** - Triggers on `Dockerfile.drivers` or `autounattend.xml` changes
-
-To trigger manually: **Actions** → Select workflow → **Run workflow**
+### Build VirtIO Drivers ISO
+- **Trigger:** Push to `Dockerfile.drivers` or `autounattend.xml`
+- **Output:** Universal drivers ISO for all Windows Server versions
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `Dockerfile.windows` | Windows ISO container image |
+| `Dockerfile.windows` | Windows ISO container image (version-agnostic) |
 | `Dockerfile.drivers` | Drivers ISO container image |
 | `autounattend.xml` | Unattended installation config |
 
@@ -72,14 +100,14 @@ To trigger manually: **Actions** → Select workflow → **Run workflow**
 ├── virtio-win-gt-x64.msi     # VirtIO guest tools installer
 ├── virtio-win-guest-tools.exe
 └── virtio/                   # VirtIO drivers
-    ├── vioscsi/2k22/amd64/   # SCSI controller
-    ├── viostor/2k22/amd64/   # Block storage
-    ├── NetKVM/2k22/amd64/    # Network adapter
-    ├── Balloon/2k22/amd64/   # Memory ballooning
-    ├── vioserial/2k22/amd64/ # Serial/guest agent
-    ├── viorng/2k22/amd64/    # RNG
-    ├── qxldod/2k22/amd64/    # QXL display
-    └── pvpanic/2k22/amd64/   # Panic notification
+    ├── vioscsi/              # SCSI controller
+    ├── viostor/              # Block storage
+    ├── NetKVM/               # Network adapter
+    ├── Balloon/              # Memory ballooning
+    ├── vioserial/            # Serial/guest agent
+    ├── viorng/               # RNG
+    ├── qxldod/               # QXL display
+    └── pvpanic/              # Panic notification
 ```
 
 ## Default Credentials
