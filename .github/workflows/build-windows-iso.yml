@@ -76,7 +76,11 @@ jobs:
       - name: Build and push Windows ISO image
         working-directory: containerdisk-windows-server
         run: |
-          docker build -f Dockerfile.windows -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022-eval .
+          docker build -f Dockerfile.windows \
+            --label "org.opencontainers.image.created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            --label "org.opencontainers.image.version=ltsc2022-eval" \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022-eval .
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022-eval
 
           # Get digest and format for Renovate compatibility (image:tag@sha256:...)
@@ -176,10 +180,20 @@ jobs:
         run: |
           cat > Dockerfile.noprompt << 'EOF'
           FROM scratch
+          LABEL org.opencontainers.image.title="Windows Server 2022 Evaluation ISO (No-Prompt EFI)"
+          LABEL org.opencontainers.image.description="Windows Server 2022 LTSC Evaluation ISO with no-prompt EFI bootloader for automated KubeVirt installations. 180-day evaluation license."
+          LABEL org.opencontainers.image.vendor="00o-sh"
+          LABEL org.opencontainers.image.licenses="Proprietary"
+          LABEL org.opencontainers.image.source="https://github.com/00o-sh/container-images"
+          LABEL org.opencontainers.image.documentation="https://github.com/00o-sh/container-images/tree/main/containerdisk-windows-server"
           ADD SERVER_EVAL_noprompt.iso /disk/disk.img
           EOF
 
-          docker build -f Dockerfile.noprompt -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022-eval-np .
+          docker build -f Dockerfile.noprompt \
+            --label "org.opencontainers.image.created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            --label "org.opencontainers.image.version=ltsc2022-eval-np" \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022-eval-np .
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022-eval-np
 
           # Get digest and format for Renovate compatibility (image:tag@sha256:...)

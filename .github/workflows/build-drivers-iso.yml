@@ -84,7 +84,11 @@ jobs:
       - name: Build and push drivers ISO image
         working-directory: containerdisk-windows-server
         run: |
-          docker build -f Dockerfile.drivers -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022-eval .
+          docker build -f Dockerfile.drivers \
+            --label "org.opencontainers.image.created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            --label "org.opencontainers.image.version=ltsc2022-eval" \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022-eval .
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022-eval
 
           # Get digest and format for Renovate compatibility (image:tag@sha256:...)

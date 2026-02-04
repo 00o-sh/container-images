@@ -1,2 +1,10 @@
 FROM scratch
+
+LABEL org.opencontainers.image.title="Windows VirtIO Drivers"
+LABEL org.opencontainers.image.description="VirtIO drivers and autounattend.xml for automated Windows Server installation in KubeVirt."
+LABEL org.opencontainers.image.vendor="00o-sh"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
+LABEL org.opencontainers.image.source="https://github.com/00o-sh/container-images"
+LABEL org.opencontainers.image.documentation="https://github.com/00o-sh/container-images/tree/main/containerdisk-windows-server"
+
 ADD drivers.iso /disk/disk.img
