@@ -1,28 +1,26 @@
-name: Build Windows Server ISO
+name: Build Windows Client ISO
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Windows Server version to build'
+        description: 'Windows Client version to build'
         required: false
         default: 'all'
         type: choice
         options:
           - all
-          - '2016'
-          - '2019'
-          - '2022'
-          - '2025'
+          - 'win10-ltsc2021'
+          - 'win11-ltsc2024'
   push:
     branches:
       - main
-    # paths:
-    #   - 'containerdisk-windows-server/Dockerfile.windows'
+    paths:
+      - 'containerdisk-windows-client/Dockerfile.windows'
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/windows-server
+  IMAGE_NAME: ${{ github.repository_owner }}/windows-client
 
 jobs:
   matrix-setup:
@@ -33,16 +31,12 @@ jobs:
       - name: Set up build matrix
         id: set-matrix
         run: |
-          if [ "${{ github.event.inputs.version }}" == "2016" ]; then
-            MATRIX='{"include":[{"version":"2016","tag":"ltsc2016-eval","url":"https://software-static.download.prss.microsoft.com/pr/download/Windows_Server_2016_Datacenter_EVAL_en-us_14393_refresh.ISO","cache_key":"v1"}]}'
-          elif [ "${{ github.event.inputs.version }}" == "2019" ]; then
-            MATRIX='{"include":[{"version":"2019","tag":"ltsc2019-eval","url":"https://go.microsoft.com/fwlink/p/?LinkID=2195167&clcid=0x409&culture=en-us&country=US","cache_key":"v1"}]}'
-          elif [ "${{ github.event.inputs.version }}" == "2022" ]; then
-            MATRIX='{"include":[{"version":"2022","tag":"ltsc2022-eval","url":"https://go.microsoft.com/fwlink/p/?LinkID=2195280&clcid=0x409&culture=en-us&country=US","cache_key":"v2"}]}'
-          elif [ "${{ github.event.inputs.version }}" == "2025" ]; then
-            MATRIX='{"include":[{"version":"2025","tag":"ltsc2025-eval","url":"https://software-static.download.prss.microsoft.com/dbazure/998969d5-f34g-4e03-ac9d-1f9786c66749/26100.32230.260111-0550.lt_release_svc_refresh_SERVER_EVAL_x64FRE_en-us.iso","cache_key":"v4"}]}'
+          if [ "${{ github.event.inputs.version }}" == "win10-ltsc2021" ]; then
+            MATRIX='{"include":[{"version":"win10-ltsc2021","tag":"win10-ltsc2021-eval","url":"https://software-static.download.prss.microsoft.com/db/download/444969d5-f34g-4e03-ac9d-1f9786c69161/19044.1288.211006-0501.21h2_release_svc_refresh_CLIENT_LTSC_EVAL_x64FRE_en-us.iso","cache_key":"v1"}]}'
+          elif [ "${{ github.event.inputs.version }}" == "win11-ltsc2024" ]; then
+            MATRIX='{"include":[{"version":"win11-ltsc2024","tag":"win11-ltsc2024-eval","url":"https://software-static.download.prss.microsoft.com/dbazure/888969d5-f34g-4e03-ac9d-1f9786c66749/26100.1742.240906-0331.ge_release_svc_refresh_CLIENT_LTSC_EVAL_x64FRE_en-us.iso","cache_key":"v1"}]}'
           else
-            MATRIX='{"include":[{"version":"2016","tag":"ltsc2016-eval","url":"https://software-static.download.prss.microsoft.com/pr/download/Windows_Server_2016_Datacenter_EVAL_en-us_14393_refresh.ISO","cache_key":"v1"},{"version":"2019","tag":"ltsc2019-eval","url":"https://go.microsoft.com/fwlink/p/?LinkID=2195167&clcid=0x409&culture=en-us&country=US","cache_key":"v1"},{"version":"2022","tag":"ltsc2022-eval","url":"https://go.microsoft.com/fwlink/p/?LinkID=2195280&clcid=0x409&culture=en-us&country=US","cache_key":"v2"},{"version":"2025","tag":"ltsc2025-eval","url":"https://software-static.download.prss.microsoft.com/dbazure/998969d5-f34g-4e03-ac9d-1f9786c66749/26100.32230.260111-0550.lt_release_svc_refresh_SERVER_EVAL_x64FRE_en-us.iso","cache_key":"v4"}]}'
+            MATRIX='{"include":[{"version":"win10-ltsc2021","tag":"win10-ltsc2021-eval","url":"https://software-static.download.prss.microsoft.com/db/download/444969d5-f34g-4e03-ac9d-1f9786c69161/19044.1288.211006-0501.21h2_release_svc_refresh_CLIENT_LTSC_EVAL_x64FRE_en-us.iso","cache_key":"v1"},{"version":"win11-ltsc2024","tag":"win11-ltsc2024-eval","url":"https://software-static.download.prss.microsoft.com/dbazure/888969d5-f34g-4e03-ac9d-1f9786c66749/26100.1742.240906-0331.ge_release_svc_refresh_CLIENT_LTSC_EVAL_x64FRE_en-us.iso","cache_key":"v1"}]}'
           fi
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
 
@@ -53,12 +47,12 @@ jobs:
       matrix: ${{ fromJson(needs.matrix-setup.outputs.matrix) }}
       fail-fast: false
     steps:
-      - name: Cache Windows Server ${{ matrix.version }} ISO
+      - name: Cache Windows ${{ matrix.version }} ISO
         id: cache-iso
         uses: actions/cache@v4
         with:
-          path: windows-server-${{ matrix.version }}.iso
-          key: windows-server-${{ matrix.version }}-eval-iso-${{ matrix.cache_key }}
+          path: windows-${{ matrix.version }}.iso
+          key: windows-${{ matrix.version }}-eval-iso-${{ matrix.cache_key }}
 
       - name: Free up disk space
         if: steps.cache-iso.outputs.cache-hit != 'true'
@@ -66,21 +60,21 @@ jobs:
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
           df -h
 
-      - name: Download Windows Server ${{ matrix.version }} ISO
+      - name: Download Windows ${{ matrix.version }} ISO
         if: steps.cache-iso.outputs.cache-hit != 'true'
         run: |
-          echo "Downloading Windows Server ${{ matrix.version }} Evaluation ISO..."
-          curl -L -o windows-server-${{ matrix.version }}.iso "${{ matrix.url }}"
+          echo "Downloading Windows ${{ matrix.version }} Evaluation ISO..."
+          curl -L -o windows-${{ matrix.version }}.iso "${{ matrix.url }}"
 
-          # Validate ISO size (should be >1GB, not a 403 error page)
-          SIZE=$(stat -c%s "windows-server-${{ matrix.version }}.iso")
-          if [ "$SIZE" -lt 1000000000 ]; then
-            echo "ERROR: Downloaded file is only $SIZE bytes. Expected >1GB."
+          # Validate ISO size (should be >3GB, not a 403 error page)
+          SIZE=$(stat -c%s "windows-${{ matrix.version }}.iso")
+          if [ "$SIZE" -lt 3000000000 ]; then
+            echo "ERROR: Downloaded file is only $SIZE bytes. Expected >3GB."
             echo "Microsoft blocks downloads from cloud IPs. Use cached ISO or self-hosted runner."
-            rm -f windows-server-${{ matrix.version }}.iso
+            rm -f windows-${{ matrix.version }}.iso
             exit 1
           fi
-          ls -lh windows-server-${{ matrix.version }}.iso
+          ls -lh windows-${{ matrix.version }}.iso
 
   build-original:
     needs: [matrix-setup, download]
@@ -98,22 +92,22 @@ jobs:
       - name: Free up disk space
         run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
 
-      - name: Restore Windows Server ${{ matrix.version }} ISO from cache
+      - name: Restore Windows ${{ matrix.version }} ISO from cache
         uses: actions/cache@v4
         with:
-          path: windows-server-${{ matrix.version }}.iso
-          key: windows-server-${{ matrix.version }}-eval-iso-${{ matrix.cache_key }}
+          path: windows-${{ matrix.version }}.iso
+          key: windows-${{ matrix.version }}-eval-iso-${{ matrix.cache_key }}
 
       - name: Validate and move ISO to build context
         run: |
           # Validate ISO size before processing
-          SIZE=$(stat -c%s "windows-server-${{ matrix.version }}.iso")
-          if [ "$SIZE" -lt 1000000000 ]; then
+          SIZE=$(stat -c%s "windows-${{ matrix.version }}.iso")
+          if [ "$SIZE" -lt 3000000000 ]; then
             echo "ERROR: ISO is only $SIZE bytes. Cache may be corrupted."
-            echo "Clear cache key 'windows-server-${{ matrix.version }}-eval-iso-${{ matrix.cache_key }}' and re-run."
+            echo "Clear cache key 'windows-${{ matrix.version }}-eval-iso-${{ matrix.cache_key }}' and re-run."
             exit 1
           fi
-          mv windows-server-${{ matrix.version }}.iso containerdisk-windows-server/SERVER_EVAL.iso
+          mv windows-${{ matrix.version }}.iso containerdisk-windows-client/CLIENT_EVAL.iso
 
       - name: Log in to Container Registry
         uses: docker/login-action@v3
@@ -122,13 +116,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push Windows Server ${{ matrix.version }} ISO image
-        working-directory: containerdisk-windows-server
+      - name: Build and push Windows ${{ matrix.version }} ISO image
+        working-directory: containerdisk-windows-client
         run: |
           docker build -f Dockerfile.windows \
-            --build-arg ISO_FILE=SERVER_EVAL.iso \
-            --label "org.opencontainers.image.title=Windows Server ${{ matrix.version }} Evaluation ISO" \
-            --label "org.opencontainers.image.description=Windows Server ${{ matrix.version }} LTSC Evaluation ISO for KubeVirt ContainerDisk. 180-day evaluation license." \
+            --build-arg ISO_FILE=CLIENT_EVAL.iso \
+            --label "org.opencontainers.image.title=Windows ${{ matrix.version }} Evaluation ISO" \
+            --label "org.opencontainers.image.description=Windows ${{ matrix.version }} LTSC Evaluation ISO for KubeVirt ContainerDisk. 90-day evaluation license." \
             --label "org.opencontainers.image.created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
             --label "org.opencontainers.image.revision=${{ github.sha }}" \
             --label "org.opencontainers.image.version=${{ matrix.tag }}" \
@@ -140,7 +134,7 @@ jobs:
           IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}"
           IMAGE_WITH_DIGEST="${IMAGE_TAG}@${DIGEST}"
 
-          echo "## Windows Server ${{ matrix.version }} ISO" >> $GITHUB_STEP_SUMMARY
+          echo "## Windows ${{ matrix.version }} ISO" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "${IMAGE_TAG}" >> $GITHUB_STEP_SUMMARY
           echo "${IMAGE_WITH_DIGEST}" >> $GITHUB_STEP_SUMMARY
@@ -168,22 +162,22 @@ jobs:
       - name: Free up disk space
         run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
 
-      - name: Restore Windows Server ${{ matrix.version }} ISO from cache
+      - name: Restore Windows ${{ matrix.version }} ISO from cache
         uses: actions/cache@v4
         with:
-          path: windows-server-${{ matrix.version }}.iso
-          key: windows-server-${{ matrix.version }}-eval-iso-${{ matrix.cache_key }}
+          path: windows-${{ matrix.version }}.iso
+          key: windows-${{ matrix.version }}-eval-iso-${{ matrix.cache_key }}
 
       - name: Validate and move ISO to build context
         run: |
           # Validate ISO size before processing
-          SIZE=$(stat -c%s "windows-server-${{ matrix.version }}.iso")
-          if [ "$SIZE" -lt 1000000000 ]; then
+          SIZE=$(stat -c%s "windows-${{ matrix.version }}.iso")
+          if [ "$SIZE" -lt 3000000000 ]; then
             echo "ERROR: ISO is only $SIZE bytes. Cache may be corrupted."
-            echo "Clear cache key 'windows-server-${{ matrix.version }}-eval-iso-${{ matrix.cache_key }}' and re-run."
+            echo "Clear cache key 'windows-${{ matrix.version }}-eval-iso-${{ matrix.cache_key }}' and re-run."
             exit 1
           fi
-          mv windows-server-${{ matrix.version }}.iso containerdisk-windows-server/SERVER_EVAL.iso
+          mv windows-${{ matrix.version }}.iso containerdisk-windows-client/CLIENT_EVAL.iso
 
       - name: Install ISO tools
         run: |
@@ -191,10 +185,10 @@ jobs:
           sudo apt-get install -y p7zip-full xorriso
 
       - name: Create no-prompt ISO
-        working-directory: containerdisk-windows-server
+        working-directory: containerdisk-windows-client
         run: |
           # Extract ISO using 7z (handles UDF better than xorriso)
-          7z x SERVER_EVAL.iso -oiso_np
+          7z x CLIENT_EVAL.iso -oiso_np
           chmod -R u+rwX iso_np/
 
           # List boot files to verify extraction
@@ -213,7 +207,7 @@ jobs:
           fi
 
           # Get original volume ID
-          VOLID=$(xorriso -indev SERVER_EVAL.iso -pvd_info 2>&1 | grep "Volume Id" | cut -d":" -f2 | xargs)
+          VOLID=$(xorriso -indev CLIENT_EVAL.iso -pvd_info 2>&1 | grep "Volume Id" | cut -d":" -f2 | xargs)
 
           # Repack ISO with EFI boot support
           xorriso -as mkisofs \
@@ -226,11 +220,11 @@ jobs:
             -eltorito-alt-boot \
             -eltorito-boot efi/microsoft/boot/efisys.bin \
             -no-emul-boot \
-            -o SERVER_EVAL_noprompt.iso \
+            -o CLIENT_EVAL_noprompt.iso \
             iso_np/
 
           rm -rf iso_np/
-          ls -lh SERVER_EVAL_noprompt.iso
+          ls -lh CLIENT_EVAL_noprompt.iso
 
       - name: Log in to Container Registry
         uses: docker/login-action@v3
@@ -240,16 +234,16 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push no-prompt ISO image
-        working-directory: containerdisk-windows-server
+        working-directory: containerdisk-windows-client
         run: |
           cat > Dockerfile.noprompt << EOF
           FROM scratch
-          LABEL org.opencontainers.image.title="Windows Server ${{ matrix.version }} Evaluation ISO (No-Prompt EFI)"
-          LABEL org.opencontainers.image.description="Windows Server ${{ matrix.version }} LTSC Evaluation ISO with no-prompt EFI bootloader for automated KubeVirt installations."
+          LABEL org.opencontainers.image.title="Windows ${{ matrix.version }} Evaluation ISO (No-Prompt EFI)"
+          LABEL org.opencontainers.image.description="Windows ${{ matrix.version }} LTSC Evaluation ISO with no-prompt EFI bootloader for automated KubeVirt installations."
           LABEL org.opencontainers.image.vendor="00o-sh"
           LABEL org.opencontainers.image.licenses="Proprietary"
           LABEL org.opencontainers.image.source="https://github.com/00o-sh/container-images"
-          ADD SERVER_EVAL_noprompt.iso /disk/disk.img
+          ADD CLIENT_EVAL_noprompt.iso /disk/disk.img
           EOF
 
           docker build -f Dockerfile.noprompt \
@@ -264,7 +258,7 @@ jobs:
           IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}-np"
           IMAGE_WITH_DIGEST="${IMAGE_TAG}@${DIGEST}"
 
-          echo "## Windows Server ${{ matrix.version }} ISO (No-Prompt)" >> $GITHUB_STEP_SUMMARY
+          echo "## Windows ${{ matrix.version }} ISO (No-Prompt)" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           echo "${IMAGE_TAG}" >> $GITHUB_STEP_SUMMARY
           echo "${IMAGE_WITH_DIGEST}" >> $GITHUB_STEP_SUMMARY

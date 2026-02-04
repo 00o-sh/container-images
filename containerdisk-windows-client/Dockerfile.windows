@@ -1,0 +1,6 @@
+FROM scratch
+ARG ISO_FILE=CLIENT_EVAL.iso
+LABEL org.opencontainers.image.vendor="00o-sh"
+LABEL org.opencontainers.image.licenses="Proprietary"
+LABEL org.opencontainers.image.source="https://github.com/00o-sh/container-images"
+ADD ${ISO_FILE} /disk/disk.img
