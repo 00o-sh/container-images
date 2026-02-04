@@ -30,7 +30,15 @@ jobs:
           sudo rm -rf /opt/ghc
           df -h
 
+      - name: Cache Windows Server ISO
+        id: cache-windows-iso
+        uses: actions/cache@v4
+        with:
+          path: containerdisk-windows-server/SERVER_EVAL_x64FRE_en-us.iso
+          key: windows-server-2022-eval-iso-v1
+
       - name: Download Windows Server 2022 ISO
+        if: steps.cache-windows-iso.outputs.cache-hit != 'true'
         working-directory: containerdisk-windows-server
         run: |
           echo "Downloading Windows Server 2022 Evaluation ISO..."
@@ -38,7 +46,15 @@ jobs:
             "https://go.microsoft.com/fwlink/p/?LinkID=2195280&clcid=0x409&culture=en-us&country=US"
           ls -lh SERVER_EVAL_x64FRE_en-us.iso
 
+      - name: Cache VirtIO drivers
+        id: cache-virtio
+        uses: actions/cache@v4
+        with:
+          path: containerdisk-windows-server/virtio-win.iso
+          key: virtio-win-stable-v1
+
       - name: Download VirtIO drivers
+        if: steps.cache-virtio.outputs.cache-hit != 'true'
         working-directory: containerdisk-windows-server
         run: |
           echo "Downloading VirtIO Windows drivers..."
