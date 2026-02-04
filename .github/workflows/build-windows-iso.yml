@@ -5,8 +5,8 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'containerdisk-windows-server/Dockerfile.windows'
+    # paths:
+    #   - 'containerdisk-windows-server/Dockerfile.windows'
 
 env:
   REGISTRY: ghcr.io
