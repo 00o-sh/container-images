@@ -39,11 +39,7 @@ jobs:
           elif [ "${{ github.event.inputs.version }}" == "2025" ]; then
             MATRIX='{"include":[{"version":"2025","tag":"ltsc2025-eval","url":"https://go.microsoft.com/fwlink/?linkid=2293500","cache_key":"v1"}]}'
           else
-            MATRIX='{"include":[
-              {"version":"2019","tag":"ltsc2019-eval","url":"https://go.microsoft.com/fwlink/p/?LinkID=2195167&clcid=0x409&culture=en-us&country=US","cache_key":"v1"},
-              {"version":"2022","tag":"ltsc2022-eval","url":"https://go.microsoft.com/fwlink/p/?LinkID=2195280&clcid=0x409&culture=en-us&country=US","cache_key":"v2"},
-              {"version":"2025","tag":"ltsc2025-eval","url":"https://go.microsoft.com/fwlink/?linkid=2293500","cache_key":"v1"}
-            ]}'
+            MATRIX='{"include":[{"version":"2019","tag":"ltsc2019-eval","url":"https://go.microsoft.com/fwlink/p/?LinkID=2195167&clcid=0x409&culture=en-us&country=US","cache_key":"v1"},{"version":"2022","tag":"ltsc2022-eval","url":"https://go.microsoft.com/fwlink/p/?LinkID=2195280&clcid=0x409&culture=en-us&country=US","cache_key":"v2"},{"version":"2025","tag":"ltsc2025-eval","url":"https://go.microsoft.com/fwlink/?linkid=2293500","cache_key":"v1"}]}'
           fi
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
 
