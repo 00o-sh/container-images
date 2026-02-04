@@ -1,2 +1,10 @@
 FROM scratch
+
+LABEL org.opencontainers.image.title="Windows Server 2022 Evaluation ISO"
+LABEL org.opencontainers.image.description="Windows Server 2022 LTSC Evaluation ISO for KubeVirt ContainerDisk. 180-day evaluation license."
+LABEL org.opencontainers.image.vendor="00o-sh"
+LABEL org.opencontainers.image.licenses="Proprietary"
+LABEL org.opencontainers.image.source="https://github.com/00o-sh/container-images"
+LABEL org.opencontainers.image.documentation="https://github.com/00o-sh/container-images/tree/main/containerdisk-windows-server"
+
 ADD SERVER_EVAL_x64FRE_en-us.iso /disk/disk.img
