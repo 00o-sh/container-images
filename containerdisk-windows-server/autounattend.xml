@@ -10,6 +10,19 @@
       <UILanguage>en-US</UILanguage>
       <UserLocale>en-US</UserLocale>
     </component>
+    <component name="Microsoft-Windows-PnpCustomizationsWinPE" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <DriverPaths>
+        <PathAndCredentials wcm:action="add" wcm:keyValue="1">
+          <Path>virtio\vioscsi\2k22\amd64</Path>
+        </PathAndCredentials>
+        <PathAndCredentials wcm:action="add" wcm:keyValue="2">
+          <Path>virtio\viostor\2k22\amd64</Path>
+        </PathAndCredentials>
+        <PathAndCredentials wcm:action="add" wcm:keyValue="3">
+          <Path>virtio\NetKVM\2k22\amd64</Path>
+        </PathAndCredentials>
+      </DriverPaths>
+    </component>
     <component name="Microsoft-Windows-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
       <DiskConfiguration>
         <Disk wcm:action="add">
@@ -126,8 +139,8 @@
         </SynchronousCommand>
         <SynchronousCommand wcm:action="add">
           <Order>3</Order>
-          <CommandLine>cmd /c "E:\virtio-win-gt-x64.msi /quiet /norestart"</CommandLine>
-          <Description>Install VirtIO drivers</Description>
+          <CommandLine>powershell -Command "$iso = (Get-Volume | Where-Object {$_.FileSystemLabel -eq 'WS2022_EVAL'}).DriveLetter; if ($iso) { Start-Process msiexec -ArgumentList '/i', \"${iso}:\virtio-win-gt-x64.msi\", '/quiet', '/norestart' -Wait }"</CommandLine>
+          <Description>Install VirtIO drivers from ISO</Description>
         </SynchronousCommand>
       </FirstLogonCommands>
     </component>

@@ -38,6 +38,14 @@ jobs:
             "https://go.microsoft.com/fwlink/p/?LinkID=2195280&clcid=0x409&culture=en-us&country=US"
           ls -lh SERVER_EVAL_x64FRE_en-us.iso
 
+      - name: Download VirtIO drivers
+        working-directory: containerdisk-windows-server
+        run: |
+          echo "Downloading VirtIO Windows drivers..."
+          curl -L -o virtio-win.iso \
+            "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso"
+          ls -lh virtio-win.iso
+
       - name: Install ISO tools
         run: |
           sudo apt-get update
@@ -46,16 +54,28 @@ jobs:
       - name: Extract and customize ISO
         working-directory: containerdisk-windows-server
         run: |
-          # Extract ISO contents
+          # Extract Windows ISO contents
           xorriso -osirrox on -indev SERVER_EVAL_x64FRE_en-us.iso -extract / iso_contents
+          rm SERVER_EVAL_x64FRE_en-us.iso
+
+          # Extract VirtIO drivers
+          xorriso -osirrox on -indev virtio-win.iso -extract / virtio_contents
+          rm virtio-win.iso
+
+          # Create drivers directory and copy VirtIO drivers
+          mkdir -p iso_contents/virtio
+          cp -r virtio_contents/* iso_contents/virtio/
+          rm -rf virtio_contents
+
+          # Copy the MSI installer to root for easy access
+          cp iso_contents/virtio/virtio-win-gt-x64.msi iso_contents/ || true
+          cp iso_contents/virtio/virtio-win-guest-tools.exe iso_contents/ || true
 
           # Add autounattend.xml to root of ISO
           cp autounattend.xml iso_contents/
 
-          # Remove original ISO to save space
-          rm SERVER_EVAL_x64FRE_en-us.iso
-
           ls -la iso_contents/
+          ls -la iso_contents/virtio/ | head -20
 
       - name: Repack ISO with unattended config
         working-directory: containerdisk-windows-server
