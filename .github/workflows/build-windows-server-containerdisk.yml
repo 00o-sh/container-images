@@ -83,14 +83,15 @@ jobs:
         working-directory: containerdisk-windows-server
         run: |
           # Use xorriso to modify ISO in-place (preserves boot configuration)
+          # -return_with SORRY 0: Don't fail on SORRY-level warnings about boot images
           xorriso -indev SERVER_EVAL_x64FRE_en-us.iso \
             -outdev modified.iso \
             -boot_image any replay \
-            -volid "WS2022_EVAL" \
             -map autounattend.xml /autounattend.xml \
             -map virtio_contents /virtio \
             -map virtio_contents/virtio-win-gt-x64.msi /virtio-win-gt-x64.msi \
             -map virtio_contents/virtio-win-guest-tools.exe /virtio-win-guest-tools.exe \
+            -return_with SORRY 0 \
             -end
 
           # Replace original with modified
