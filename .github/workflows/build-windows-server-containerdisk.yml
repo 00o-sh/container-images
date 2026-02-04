@@ -75,14 +75,14 @@ jobs:
           rm SERVER_EVAL_x64FRE_en-us.iso
 
           # Fix permissions (ISO extracts as read-only)
-          chmod -R u+w iso_contents/
+          chmod -R u+rwX iso_contents/
 
           # Extract VirtIO drivers
           xorriso -osirrox on -indev virtio-win.iso -extract / virtio_contents
           rm virtio-win.iso
 
           # Fix VirtIO permissions (ISO extracts as read-only)
-          chmod -R u+w virtio_contents/
+          chmod -R u+rwX virtio_contents/
 
           # Create drivers directory and copy VirtIO drivers
           mkdir -p iso_contents/virtio
