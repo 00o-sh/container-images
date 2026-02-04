@@ -117,12 +117,11 @@ jobs:
             --label "org.opencontainers.image.revision=${{ github.sha }}" \
             --label "org.opencontainers.image.version=${{ matrix.tag }}" \
             -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }} .
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }} | tee push.log
 
-          # Output for Renovate
-          DIGEST_FULL=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }})
-          SHA=$(echo "$DIGEST_FULL" | cut -d'@' -f2)
-          IMAGE_WITH_DIGEST="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}@${SHA}"
+          # Output for Renovate - extract digest from push output
+          DIGEST=$(grep -oP 'digest: \Ksha256:[a-f0-9]+' push.log || docker inspect --format='{{index .RepoDigests 0}}' ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }} | cut -d'@' -f2)
+          IMAGE_WITH_DIGEST="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}@${DIGEST}"
 
           echo "## Windows Server ${{ matrix.version }} ISO" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
@@ -227,12 +226,11 @@ jobs:
             --label "org.opencontainers.image.revision=${{ github.sha }}" \
             --label "org.opencontainers.image.version=${{ matrix.tag }}-np" \
             -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}-np .
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}-np
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}-np | tee push.log
 
-          # Output for Renovate
-          DIGEST_FULL=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}-np)
-          SHA=$(echo "$DIGEST_FULL" | cut -d'@' -f2)
-          IMAGE_WITH_DIGEST="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}-np@${SHA}"
+          # Output for Renovate - extract digest from push output
+          DIGEST=$(grep -oP 'digest: \Ksha256:[a-f0-9]+' push.log || docker inspect --format='{{index .RepoDigests 0}}' ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}-np | cut -d'@' -f2)
+          IMAGE_WITH_DIGEST="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}-np@${DIGEST}"
 
           echo "## Windows Server ${{ matrix.version }} ISO (No-Prompt)" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
