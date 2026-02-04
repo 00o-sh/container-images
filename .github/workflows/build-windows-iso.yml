@@ -10,6 +10,7 @@ on:
         type: choice
         options:
           - all
+          - '2016'
           - '2019'
           - '2022'
           - '2025'
@@ -32,14 +33,16 @@ jobs:
       - name: Set up build matrix
         id: set-matrix
         run: |
-          if [ "${{ github.event.inputs.version }}" == "2019" ]; then
+          if [ "${{ github.event.inputs.version }}" == "2016" ]; then
+            MATRIX='{"include":[{"version":"2016","tag":"ltsc2016-eval","url":"https://software-static.download.prss.microsoft.com/pr/download/Windows_Server_2016_Datacenter_EVAL_en-us_14393_refresh.ISO","cache_key":"v1"}]}'
+          elif [ "${{ github.event.inputs.version }}" == "2019" ]; then
             MATRIX='{"include":[{"version":"2019","tag":"ltsc2019-eval","url":"https://go.microsoft.com/fwlink/p/?LinkID=2195167&clcid=0x409&culture=en-us&country=US","cache_key":"v1"}]}'
           elif [ "${{ github.event.inputs.version }}" == "2022" ]; then
             MATRIX='{"include":[{"version":"2022","tag":"ltsc2022-eval","url":"https://go.microsoft.com/fwlink/p/?LinkID=2195280&clcid=0x409&culture=en-us&country=US","cache_key":"v2"}]}'
           elif [ "${{ github.event.inputs.version }}" == "2025" ]; then
             MATRIX='{"include":[{"version":"2025","tag":"ltsc2025-eval","url":"https://software-static.download.prss.microsoft.com/dbazure/998969d5-f34g-4e03-ac9d-1f9786c66749/26100.32230.260111-0550.lt_release_svc_refresh_SERVER_EVAL_x64FRE_en-us.iso","cache_key":"v4"}]}'
           else
-            MATRIX='{"include":[{"version":"2019","tag":"ltsc2019-eval","url":"https://go.microsoft.com/fwlink/p/?LinkID=2195167&clcid=0x409&culture=en-us&country=US","cache_key":"v1"},{"version":"2022","tag":"ltsc2022-eval","url":"https://go.microsoft.com/fwlink/p/?LinkID=2195280&clcid=0x409&culture=en-us&country=US","cache_key":"v2"},{"version":"2025","tag":"ltsc2025-eval","url":"https://software-static.download.prss.microsoft.com/dbazure/998969d5-f34g-4e03-ac9d-1f9786c66749/26100.32230.260111-0550.lt_release_svc_refresh_SERVER_EVAL_x64FRE_en-us.iso","cache_key":"v4"}]}'
+            MATRIX='{"include":[{"version":"2016","tag":"ltsc2016-eval","url":"https://software-static.download.prss.microsoft.com/pr/download/Windows_Server_2016_Datacenter_EVAL_en-us_14393_refresh.ISO","cache_key":"v1"},{"version":"2019","tag":"ltsc2019-eval","url":"https://go.microsoft.com/fwlink/p/?LinkID=2195167&clcid=0x409&culture=en-us&country=US","cache_key":"v1"},{"version":"2022","tag":"ltsc2022-eval","url":"https://go.microsoft.com/fwlink/p/?LinkID=2195280&clcid=0x409&culture=en-us&country=US","cache_key":"v2"},{"version":"2025","tag":"ltsc2025-eval","url":"https://software-static.download.prss.microsoft.com/dbazure/998969d5-f34g-4e03-ac9d-1f9786c66749/26100.32230.260111-0550.lt_release_svc_refresh_SERVER_EVAL_x64FRE_en-us.iso","cache_key":"v4"}]}'
           fi
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
 

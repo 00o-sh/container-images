@@ -10,6 +10,8 @@ Container images for deploying Windows Server Evaluation editions in KubeVirt.
 
 | Version | Tag | Description |
 |---------|-----|-------------|
+| 2016 | `ltsc2016-eval` | Windows Server 2016 LTSC Evaluation |
+| 2016 | `ltsc2016-eval-np` | Windows Server 2016 (no-prompt EFI) |
 | 2019 | `ltsc2019-eval` | Windows Server 2019 LTSC Evaluation |
 | 2019 | `ltsc2019-eval-np` | Windows Server 2019 (no-prompt EFI) |
 | 2022 | `ltsc2022-eval` | Windows Server 2022 LTSC Evaluation |
@@ -27,12 +29,14 @@ Container images for deploying Windows Server Evaluation editions in KubeVirt.
 | `client` | VirtIO drivers + autounattend.xml for Windows 10/11 (future) |
 
 ```bash
-# Windows Server images (~5.2GB each)
+# Windows Server images (~5-6GB each)
+docker pull ghcr.io/00o-sh/windows-server:ltsc2016-eval
 docker pull ghcr.io/00o-sh/windows-server:ltsc2019-eval
 docker pull ghcr.io/00o-sh/windows-server:ltsc2022-eval
 docker pull ghcr.io/00o-sh/windows-server:ltsc2025-eval
 
 # No-prompt versions for automated boot
+docker pull ghcr.io/00o-sh/windows-server:ltsc2016-eval-np
 docker pull ghcr.io/00o-sh/windows-server:ltsc2019-eval-np
 docker pull ghcr.io/00o-sh/windows-server:ltsc2022-eval-np
 docker pull ghcr.io/00o-sh/windows-server:ltsc2025-eval-np
