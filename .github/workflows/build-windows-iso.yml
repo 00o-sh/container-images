@@ -112,14 +112,18 @@ jobs:
       - name: Install ISO tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y xorriso
+          sudo apt-get install -y p7zip-full xorriso
 
       - name: Create no-prompt ISO
         working-directory: containerdisk-windows-server
         run: |
-          # Extract ISO
-          xorriso -osirrox on -indev SERVER_EVAL_x64FRE_en-us.iso -extract / iso_np
+          # Extract ISO using 7z (handles UDF better than xorriso)
+          7z x SERVER_EVAL_x64FRE_en-us.iso -oiso_np
           chmod -R u+rwX iso_np/
+
+          # List boot files to verify extraction
+          ls -la iso_np/boot/ || echo "No boot directory"
+          ls -la iso_np/efi/microsoft/boot/ || echo "No EFI boot directory"
 
           # Replace EFI bootloaders with no-prompt versions
           if [ -f "iso_np/efi/microsoft/boot/efisys_noprompt.bin" ]; then
