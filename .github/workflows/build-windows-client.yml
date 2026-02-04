@@ -1,0 +1,272 @@
+name: Build Windows Client ISO
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Windows Client version to build'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - 'win10-ltsc2021'
+          - 'win11-ltsc2024'
+  push:
+    branches:
+      - main
+    paths:
+      - 'containerdisk-windows-client/Dockerfile.windows'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/windows-client
+
+jobs:
+  matrix-setup:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Set up build matrix
+        id: set-matrix
+        run: |
+          if [ "${{ github.event.inputs.version }}" == "win10-ltsc2021" ]; then
+            MATRIX='{"include":[{"version":"win10-ltsc2021","tag":"win10-ltsc2021-eval","url":"https://software-static.download.prss.microsoft.com/db/download/444969d5-f34g-4e03-ac9d-1f9786c69161/19044.1288.211006-0501.21h2_release_svc_refresh_CLIENT_LTSC_EVAL_x64FRE_en-us.iso","cache_key":"v1"}]}'
+          elif [ "${{ github.event.inputs.version }}" == "win11-ltsc2024" ]; then
+            MATRIX='{"include":[{"version":"win11-ltsc2024","tag":"win11-ltsc2024-eval","url":"https://software-static.download.prss.microsoft.com/dbazure/888969d5-f34g-4e03-ac9d-1f9786c66749/26100.1742.240906-0331.ge_release_svc_refresh_CLIENT_LTSC_EVAL_x64FRE_en-us.iso","cache_key":"v1"}]}'
+          else
+            MATRIX='{"include":[{"version":"win10-ltsc2021","tag":"win10-ltsc2021-eval","url":"https://software-static.download.prss.microsoft.com/db/download/444969d5-f34g-4e03-ac9d-1f9786c69161/19044.1288.211006-0501.21h2_release_svc_refresh_CLIENT_LTSC_EVAL_x64FRE_en-us.iso","cache_key":"v1"},{"version":"win11-ltsc2024","tag":"win11-ltsc2024-eval","url":"https://software-static.download.prss.microsoft.com/dbazure/888969d5-f34g-4e03-ac9d-1f9786c66749/26100.1742.240906-0331.ge_release_svc_refresh_CLIENT_LTSC_EVAL_x64FRE_en-us.iso","cache_key":"v1"}]}'
+          fi
+          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+
+  download:
+    needs: matrix-setup
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJson(needs.matrix-setup.outputs.matrix) }}
+      fail-fast: false
+    steps:
+      - name: Cache Windows ${{ matrix.version }} ISO
+        id: cache-iso
+        uses: actions/cache@v4
+        with:
+          path: windows-${{ matrix.version }}.iso
+          key: windows-${{ matrix.version }}-eval-iso-${{ matrix.cache_key }}
+
+      - name: Free up disk space
+        if: steps.cache-iso.outputs.cache-hit != 'true'
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          df -h
+
+      - name: Download Windows ${{ matrix.version }} ISO
+        if: steps.cache-iso.outputs.cache-hit != 'true'
+        run: |
+          echo "Downloading Windows ${{ matrix.version }} Evaluation ISO..."
+          curl -L -o windows-${{ matrix.version }}.iso "${{ matrix.url }}"
+
+          # Validate ISO size (should be >3GB, not a 403 error page)
+          SIZE=$(stat -c%s "windows-${{ matrix.version }}.iso")
+          if [ "$SIZE" -lt 3000000000 ]; then
+            echo "ERROR: Downloaded file is only $SIZE bytes. Expected >3GB."
+            echo "Microsoft blocks downloads from cloud IPs. Use cached ISO or self-hosted runner."
+            rm -f windows-${{ matrix.version }}.iso
+            exit 1
+          fi
+          ls -lh windows-${{ matrix.version }}.iso
+
+  build-original:
+    needs: [matrix-setup, download]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix: ${{ fromJson(needs.matrix-setup.outputs.matrix) }}
+      fail-fast: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Free up disk space
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+
+      - name: Restore Windows ${{ matrix.version }} ISO from cache
+        uses: actions/cache@v4
+        with:
+          path: windows-${{ matrix.version }}.iso
+          key: windows-${{ matrix.version }}-eval-iso-${{ matrix.cache_key }}
+
+      - name: Validate and move ISO to build context
+        run: |
+          # Validate ISO size before processing
+          SIZE=$(stat -c%s "windows-${{ matrix.version }}.iso")
+          if [ "$SIZE" -lt 3000000000 ]; then
+            echo "ERROR: ISO is only $SIZE bytes. Cache may be corrupted."
+            echo "Clear cache key 'windows-${{ matrix.version }}-eval-iso-${{ matrix.cache_key }}' and re-run."
+            exit 1
+          fi
+          mv windows-${{ matrix.version }}.iso containerdisk-windows-client/CLIENT_EVAL.iso
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Windows ${{ matrix.version }} ISO image
+        working-directory: containerdisk-windows-client
+        run: |
+          docker build -f Dockerfile.windows \
+            --build-arg ISO_FILE=CLIENT_EVAL.iso \
+            --label "org.opencontainers.image.title=Windows ${{ matrix.version }} Evaluation ISO" \
+            --label "org.opencontainers.image.description=Windows ${{ matrix.version }} LTSC Evaluation ISO for KubeVirt ContainerDisk. 90-day evaluation license." \
+            --label "org.opencontainers.image.created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            --label "org.opencontainers.image.version=${{ matrix.tag }}" \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }} .
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }} | tee push.log
+
+          # Output for Renovate - extract digest from push output
+          DIGEST=$(grep -oP 'digest: \Ksha256:[a-f0-9]+' push.log || docker inspect --format='{{index .RepoDigests 0}}' ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }} | cut -d'@' -f2)
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}"
+          IMAGE_WITH_DIGEST="${IMAGE_TAG}@${DIGEST}"
+
+          echo "## Windows ${{ matrix.version }} ISO" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "${IMAGE_TAG}" >> $GITHUB_STEP_SUMMARY
+          echo "${IMAGE_WITH_DIGEST}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Renovate:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "# renovate: datasource=docker depName=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "image: ${IMAGE_WITH_DIGEST}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+
+  build-noprompt:
+    needs: [matrix-setup, download]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix: ${{ fromJson(needs.matrix-setup.outputs.matrix) }}
+      fail-fast: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Free up disk space
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+
+      - name: Restore Windows ${{ matrix.version }} ISO from cache
+        uses: actions/cache@v4
+        with:
+          path: windows-${{ matrix.version }}.iso
+          key: windows-${{ matrix.version }}-eval-iso-${{ matrix.cache_key }}
+
+      - name: Validate and move ISO to build context
+        run: |
+          # Validate ISO size before processing
+          SIZE=$(stat -c%s "windows-${{ matrix.version }}.iso")
+          if [ "$SIZE" -lt 3000000000 ]; then
+            echo "ERROR: ISO is only $SIZE bytes. Cache may be corrupted."
+            echo "Clear cache key 'windows-${{ matrix.version }}-eval-iso-${{ matrix.cache_key }}' and re-run."
+            exit 1
+          fi
+          mv windows-${{ matrix.version }}.iso containerdisk-windows-client/CLIENT_EVAL.iso
+
+      - name: Install ISO tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y p7zip-full xorriso
+
+      - name: Create no-prompt ISO
+        working-directory: containerdisk-windows-client
+        run: |
+          # Extract ISO using 7z (handles UDF better than xorriso)
+          7z x CLIENT_EVAL.iso -oiso_np
+          chmod -R u+rwX iso_np/
+
+          # List boot files to verify extraction
+          ls -la iso_np/boot/ || echo "No boot directory"
+          ls -la iso_np/efi/microsoft/boot/ || echo "No EFI boot directory"
+
+          # Replace EFI bootloaders with no-prompt versions
+          if [ -f "iso_np/efi/microsoft/boot/efisys_noprompt.bin" ]; then
+            cp iso_np/efi/microsoft/boot/efisys_noprompt.bin iso_np/efi/microsoft/boot/efisys.bin
+            echo "Replaced efisys.bin with no-prompt version"
+          fi
+
+          if [ -f "iso_np/efi/microsoft/boot/cdboot_noprompt.efi" ]; then
+            cp iso_np/efi/microsoft/boot/cdboot_noprompt.efi iso_np/efi/microsoft/boot/cdboot.efi
+            echo "Replaced cdboot.efi with no-prompt version"
+          fi
+
+          # Get original volume ID
+          VOLID=$(xorriso -indev CLIENT_EVAL.iso -pvd_info 2>&1 | grep "Volume Id" | cut -d":" -f2 | xargs)
+
+          # Repack ISO with EFI boot support
+          xorriso -as mkisofs \
+            -iso-level 3 \
+            -full-iso9660-filenames \
+            -volid "${VOLID}" \
+            -eltorito-boot boot/etfsboot.com \
+            -no-emul-boot \
+            -boot-load-size 8 \
+            -eltorito-alt-boot \
+            -eltorito-boot efi/microsoft/boot/efisys.bin \
+            -no-emul-boot \
+            -o CLIENT_EVAL_noprompt.iso \
+            iso_np/
+
+          rm -rf iso_np/
+          ls -lh CLIENT_EVAL_noprompt.iso
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push no-prompt ISO image
+        working-directory: containerdisk-windows-client
+        run: |
+          cat > Dockerfile.noprompt << EOF
+          FROM scratch
+          LABEL org.opencontainers.image.title="Windows ${{ matrix.version }} Evaluation ISO (No-Prompt EFI)"
+          LABEL org.opencontainers.image.description="Windows ${{ matrix.version }} LTSC Evaluation ISO with no-prompt EFI bootloader for automated KubeVirt installations."
+          LABEL org.opencontainers.image.vendor="00o-sh"
+          LABEL org.opencontainers.image.licenses="Proprietary"
+          LABEL org.opencontainers.image.source="https://github.com/00o-sh/container-images"
+          ADD CLIENT_EVAL_noprompt.iso /disk/disk.img
+          EOF
+
+          docker build -f Dockerfile.noprompt \
+            --label "org.opencontainers.image.created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            --label "org.opencontainers.image.version=${{ matrix.tag }}-np" \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}-np .
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}-np | tee push.log
+
+          # Output for Renovate - extract digest from push output
+          DIGEST=$(grep -oP 'digest: \Ksha256:[a-f0-9]+' push.log || docker inspect --format='{{index .RepoDigests 0}}' ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}-np | cut -d'@' -f2)
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}-np"
+          IMAGE_WITH_DIGEST="${IMAGE_TAG}@${DIGEST}"
+
+          echo "## Windows ${{ matrix.version }} ISO (No-Prompt)" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "${IMAGE_TAG}" >> $GITHUB_STEP_SUMMARY
+          echo "${IMAGE_WITH_DIGEST}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Renovate:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "# renovate: datasource=docker depName=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}" >> $GITHUB_STEP_SUMMARY
+          echo "image: ${IMAGE_WITH_DIGEST}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "*No-prompt version skips 'Press any key to boot from CD'*" >> $GITHUB_STEP_SUMMARY

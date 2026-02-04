@@ -82,7 +82,7 @@ Windows Setup will automatically:
 
 ### Build Windows Server ISO
 - **Trigger:** Manual dispatch or push to `containerdisk-windows-server/Dockerfile.windows`
-- **Input:** Select specific version (2019, 2022, 2025) or build all
+- **Input:** Select specific version (2016, 2019, 2022, 2025) or build all
 - **Output:** Original + no-prompt images for selected versions
 
 ### Build VirtIO Drivers ISO
