@@ -65,57 +65,38 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y xorriso
 
-      - name: Extract and customize ISO
+      - name: Extract VirtIO drivers
         working-directory: containerdisk-windows-server
         run: |
-          # Extract Windows ISO contents
-          xorriso -osirrox on -indev SERVER_EVAL_x64FRE_en-us.iso -extract / iso_contents
-          rm SERVER_EVAL_x64FRE_en-us.iso
-
-          # Fix permissions (ISO extracts as read-only)
-          chmod -R u+rwX iso_contents/
-
           # Extract VirtIO drivers
           xorriso -osirrox on -indev virtio-win.iso -extract / virtio_contents
           rm virtio-win.iso
 
-          # Fix VirtIO permissions (ISO extracts as read-only)
+          # Fix permissions (ISO extracts as read-only)
           chmod -R u+rwX virtio_contents/
 
-          # Create drivers directory and copy VirtIO drivers
-          mkdir -p iso_contents/virtio
-          cp -r virtio_contents/* iso_contents/virtio/
-          rm -rf virtio_contents
+          ls -la virtio_contents/ | head -20
 
-          # Copy the MSI installer to root for easy access
-          cp iso_contents/virtio/virtio-win-gt-x64.msi iso_contents/ || true
-          cp iso_contents/virtio/virtio-win-guest-tools.exe iso_contents/ || true
-
-          # Add autounattend.xml to root of ISO
-          cp autounattend.xml iso_contents/
-
-          ls -la iso_contents/
-          ls -la iso_contents/virtio/ | head -20
-
-      - name: Repack ISO with unattended config
+      - name: Modify ISO in-place with xorriso
         working-directory: containerdisk-windows-server
         run: |
-          # Create new ISO with both BIOS and UEFI boot support
-          xorriso -as mkisofs \
-            -iso-level 3 \
-            -full-iso9660-filenames \
+          # Use xorriso to modify ISO in-place (preserves boot configuration)
+          xorriso -indev SERVER_EVAL_x64FRE_en-us.iso \
+            -outdev modified.iso \
+            -boot_image any replay \
             -volid "WS2022_EVAL" \
-            -eltorito-boot boot/etfsboot.com \
-            -no-emul-boot \
-            -boot-load-size 8 \
-            -eltorito-alt-boot \
-            -eltorito-boot efi/microsoft/boot/efisys.bin \
-            -no-emul-boot \
-            -output SERVER_EVAL_x64FRE_en-us.iso \
-            iso_contents
+            -map autounattend.xml /autounattend.xml \
+            -map virtio_contents /virtio \
+            -map virtio_contents/virtio-win-gt-x64.msi /virtio-win-gt-x64.msi \
+            -map virtio_contents/virtio-win-guest-tools.exe /virtio-win-guest-tools.exe \
+            -end
 
-          # Clean up extracted contents
-          rm -rf iso_contents
+          # Replace original with modified
+          rm SERVER_EVAL_x64FRE_en-us.iso
+          mv modified.iso SERVER_EVAL_x64FRE_en-us.iso
+
+          # Clean up
+          rm -rf virtio_contents
 
           ls -lh SERVER_EVAL_x64FRE_en-us.iso
 
