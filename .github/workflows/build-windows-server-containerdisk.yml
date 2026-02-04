@@ -81,6 +81,9 @@ jobs:
           xorriso -osirrox on -indev virtio-win.iso -extract / virtio_contents
           rm virtio-win.iso
 
+          # Fix VirtIO permissions (ISO extracts as read-only)
+          chmod -R u+w virtio_contents/
+
           # Create drivers directory and copy VirtIO drivers
           mkdir -p iso_contents/virtio
           cp -r virtio_contents/* iso_contents/virtio/
