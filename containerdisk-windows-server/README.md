@@ -17,7 +17,7 @@ To trigger manually: **Actions** → **Build Windows Server 2022 ContainerDisk**
 
 ```
 /disk/
-└── windows-server-2022.iso
+└── disk.img
 ```
 
 ## Prerequisites
@@ -44,5 +44,5 @@ docker push ghcr.io/00o-sh/windows-server-2022-eval-iso:ltsc2022-eval
 ## Notes
 
 - Base image is `scratch` (empty container)
-- ISO is placed in `/disk/` directory with `.iso` extension
+- ISO is placed in `/disk/disk.img` (KubeVirt containerDisk naming convention)
 - Final image size: ~5.2GB
