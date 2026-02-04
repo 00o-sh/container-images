@@ -47,21 +47,12 @@ jobs:
       matrix: ${{ fromJson(needs.matrix-setup.outputs.matrix) }}
       fail-fast: false
     steps:
-      - name: Cache Windows ${{ matrix.version }} ISO
-        id: cache-iso
-        uses: actions/cache@v4
-        with:
-          path: windows-${{ matrix.version }}.iso
-          key: windows-${{ matrix.version }}-eval-iso-${{ matrix.cache_key }}
-
       - name: Free up disk space
-        if: steps.cache-iso.outputs.cache-hit != 'true'
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
           df -h
 
       - name: Download Windows ${{ matrix.version }} ISO
-        if: steps.cache-iso.outputs.cache-hit != 'true'
         run: |
           echo "Downloading Windows ${{ matrix.version }} Evaluation ISO..."
           curl -L -o windows-${{ matrix.version }}.iso "${{ matrix.url }}"
@@ -70,11 +61,18 @@ jobs:
           SIZE=$(stat -c%s "windows-${{ matrix.version }}.iso")
           if [ "$SIZE" -lt 3000000000 ]; then
             echo "ERROR: Downloaded file is only $SIZE bytes. Expected >3GB."
-            echo "Microsoft blocks downloads from cloud IPs. Use cached ISO or self-hosted runner."
+            echo "Microsoft blocks downloads from cloud IPs."
             rm -f windows-${{ matrix.version }}.iso
             exit 1
           fi
           ls -lh windows-${{ matrix.version }}.iso
+
+      - name: Upload ISO as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-${{ matrix.version }}-iso
+          path: windows-${{ matrix.version }}.iso
+          retention-days: 1
 
   build-original:
     needs: [matrix-setup, download]
@@ -92,19 +90,17 @@ jobs:
       - name: Free up disk space
         run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
 
-      - name: Restore Windows ${{ matrix.version }} ISO from cache
-        uses: actions/cache@v4
+      - name: Download ISO artifact
+        uses: actions/download-artifact@v4
         with:
-          path: windows-${{ matrix.version }}.iso
-          key: windows-${{ matrix.version }}-eval-iso-${{ matrix.cache_key }}
+          name: windows-${{ matrix.version }}-iso
 
       - name: Validate and move ISO to build context
         run: |
           # Validate ISO size before processing
           SIZE=$(stat -c%s "windows-${{ matrix.version }}.iso")
           if [ "$SIZE" -lt 3000000000 ]; then
-            echo "ERROR: ISO is only $SIZE bytes. Cache may be corrupted."
-            echo "Clear cache key 'windows-${{ matrix.version }}-eval-iso-${{ matrix.cache_key }}' and re-run."
+            echo "ERROR: ISO is only $SIZE bytes. Download may have failed."
             exit 1
           fi
           mv windows-${{ matrix.version }}.iso containerdisk-windows-client/CLIENT_EVAL.iso
@@ -162,19 +158,17 @@ jobs:
       - name: Free up disk space
         run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
 
-      - name: Restore Windows ${{ matrix.version }} ISO from cache
-        uses: actions/cache@v4
+      - name: Download ISO artifact
+        uses: actions/download-artifact@v4
         with:
-          path: windows-${{ matrix.version }}.iso
-          key: windows-${{ matrix.version }}-eval-iso-${{ matrix.cache_key }}
+          name: windows-${{ matrix.version }}-iso
 
       - name: Validate and move ISO to build context
         run: |
           # Validate ISO size before processing
           SIZE=$(stat -c%s "windows-${{ matrix.version }}.iso")
           if [ "$SIZE" -lt 3000000000 ]; then
-            echo "ERROR: ISO is only $SIZE bytes. Cache may be corrupted."
-            echo "Clear cache key 'windows-${{ matrix.version }}-eval-iso-${{ matrix.cache_key }}' and re-run."
+            echo "ERROR: ISO is only $SIZE bytes. Download may have failed."
             exit 1
           fi
           mv windows-${{ matrix.version }}.iso containerdisk-windows-client/CLIENT_EVAL.iso
