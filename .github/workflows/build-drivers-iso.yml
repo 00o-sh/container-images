@@ -5,9 +5,9 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'containerdisk-windows-server/Dockerfile.drivers'
-      - 'containerdisk-windows-server/autounattend.xml'
+    # paths:
+    #   - 'containerdisk-windows-server/Dockerfile.drivers'
+    #   - 'containerdisk-windows-server/autounattend.xml'
 
 env:
   REGISTRY: ghcr.io
