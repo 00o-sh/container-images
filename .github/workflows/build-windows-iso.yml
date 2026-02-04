@@ -37,9 +37,11 @@ jobs:
           elif [ "${{ github.event.inputs.version }}" == "2022" ]; then
             MATRIX='{"include":[{"version":"2022","tag":"ltsc2022-eval","url":"https://go.microsoft.com/fwlink/p/?LinkID=2195280&clcid=0x409&culture=en-us&country=US","cache_key":"v2"}]}'
           elif [ "${{ github.event.inputs.version }}" == "2025" ]; then
-            MATRIX='{"include":[{"version":"2025","tag":"ltsc2025-eval","url":"https://go.microsoft.com/fwlink/?linkid=2293500","cache_key":"v1"}]}'
+            # Note: 2025 requires pre-cached ISO - Microsoft blocks cloud downloads
+            MATRIX='{"include":[{"version":"2025","tag":"ltsc2025-eval","url":"https://go.microsoft.com/fwlink/?linkid=2293500","cache_key":"v2"}]}'
           else
-            MATRIX='{"include":[{"version":"2019","tag":"ltsc2019-eval","url":"https://go.microsoft.com/fwlink/p/?LinkID=2195167&clcid=0x409&culture=en-us&country=US","cache_key":"v1"},{"version":"2022","tag":"ltsc2022-eval","url":"https://go.microsoft.com/fwlink/p/?LinkID=2195280&clcid=0x409&culture=en-us&country=US","cache_key":"v2"},{"version":"2025","tag":"ltsc2025-eval","url":"https://go.microsoft.com/fwlink/?linkid=2293500","cache_key":"v1"}]}'
+            # Default: only 2019 and 2022 (2025 requires manual cache priming)
+            MATRIX='{"include":[{"version":"2019","tag":"ltsc2019-eval","url":"https://go.microsoft.com/fwlink/p/?LinkID=2195167&clcid=0x409&culture=en-us&country=US","cache_key":"v1"},{"version":"2022","tag":"ltsc2022-eval","url":"https://go.microsoft.com/fwlink/p/?LinkID=2195280&clcid=0x409&culture=en-us&country=US","cache_key":"v2"}]}'
           fi
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
 
@@ -68,6 +70,15 @@ jobs:
         run: |
           echo "Downloading Windows Server ${{ matrix.version }} Evaluation ISO..."
           curl -L -o windows-server-${{ matrix.version }}.iso "${{ matrix.url }}"
+
+          # Validate ISO size (should be >1GB, not a 403 error page)
+          SIZE=$(stat -c%s "windows-server-${{ matrix.version }}.iso")
+          if [ "$SIZE" -lt 1000000000 ]; then
+            echo "ERROR: Downloaded file is only $SIZE bytes. Expected >1GB."
+            echo "Microsoft blocks downloads from cloud IPs. Use cached ISO or self-hosted runner."
+            rm -f windows-server-${{ matrix.version }}.iso
+            exit 1
+          fi
           ls -lh windows-server-${{ matrix.version }}.iso
 
   build-original:
@@ -92,8 +103,16 @@ jobs:
           path: windows-server-${{ matrix.version }}.iso
           key: windows-server-${{ matrix.version }}-eval-iso-${{ matrix.cache_key }}
 
-      - name: Move ISO to build context
-        run: mv windows-server-${{ matrix.version }}.iso containerdisk-windows-server/SERVER_EVAL.iso
+      - name: Validate and move ISO to build context
+        run: |
+          # Validate ISO size before processing
+          SIZE=$(stat -c%s "windows-server-${{ matrix.version }}.iso")
+          if [ "$SIZE" -lt 1000000000 ]; then
+            echo "ERROR: ISO is only $SIZE bytes. Cache may be corrupted."
+            echo "Clear cache key 'windows-server-${{ matrix.version }}-eval-iso-${{ matrix.cache_key }}' and re-run."
+            exit 1
+          fi
+          mv windows-server-${{ matrix.version }}.iso containerdisk-windows-server/SERVER_EVAL.iso
 
       - name: Log in to Container Registry
         uses: docker/login-action@v3
@@ -147,8 +166,16 @@ jobs:
           path: windows-server-${{ matrix.version }}.iso
           key: windows-server-${{ matrix.version }}-eval-iso-${{ matrix.cache_key }}
 
-      - name: Move ISO to build context
-        run: mv windows-server-${{ matrix.version }}.iso containerdisk-windows-server/SERVER_EVAL.iso
+      - name: Validate and move ISO to build context
+        run: |
+          # Validate ISO size before processing
+          SIZE=$(stat -c%s "windows-server-${{ matrix.version }}.iso")
+          if [ "$SIZE" -lt 1000000000 ]; then
+            echo "ERROR: ISO is only $SIZE bytes. Cache may be corrupted."
+            echo "Clear cache key 'windows-server-${{ matrix.version }}-eval-iso-${{ matrix.cache_key }}' and re-run."
+            exit 1
+          fi
+          mv windows-server-${{ matrix.version }}.iso containerdisk-windows-server/SERVER_EVAL.iso
 
       - name: Install ISO tools
         run: |
