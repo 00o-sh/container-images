@@ -35,7 +35,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: containerdisk-windows-server/SERVER_EVAL_x64FRE_en-us.iso
-          key: windows-server-2022-eval-iso-v1
+          key: windows-server-2022-eval-iso-v2
 
       - name: Download Windows Server 2022 ISO
         if: steps.cache-windows-iso.outputs.cache-hit != 'true'
