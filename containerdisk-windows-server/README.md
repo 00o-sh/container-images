@@ -10,14 +10,11 @@ Container images for deploying Windows Server Evaluation editions in KubeVirt.
 
 | Version | Tag | Description |
 |---------|-----|-------------|
-| 2016 | `ltsc2016-eval` | Windows Server 2016 LTSC Evaluation |
-| 2016 | `ltsc2016-eval-np` | Windows Server 2016 (no-prompt EFI) |
-| 2019 | `ltsc2019-eval` | Windows Server 2019 LTSC Evaluation |
-| 2019 | `ltsc2019-eval-np` | Windows Server 2019 (no-prompt EFI) |
-| 2022 | `ltsc2022-eval` | Windows Server 2022 LTSC Evaluation |
-| 2022 | `ltsc2022-eval-np` | Windows Server 2022 (no-prompt EFI) |
-| 2025 | `ltsc2025-eval` | Windows Server 2025 LTSC Evaluation |
-| 2025 | `ltsc2025-eval-np` | Windows Server 2025 (no-prompt EFI) |
+| 2016 | `2016` / `2016-np` | Windows Server 2016 LTSC Evaluation |
+| 2019 | `2019` / `2019-np` | Windows Server 2019 LTSC Evaluation |
+| 2022 | `2022` / `2022-np` | Windows Server 2022 LTSC Evaluation |
+| 2025 | `2025` / `2025-np` | Windows Server 2025 LTSC Evaluation |
+| Latest | `rolling` / `rolling-np` | Latest version (currently 2025) |
 
 **No-prompt (`-np`) versions:** Skip "Press any key to boot from CD" for fully automated EFI boot.
 
@@ -30,16 +27,14 @@ Container images for deploying Windows Server Evaluation editions in KubeVirt.
 
 ```bash
 # Windows Server images (~5-6GB each)
-docker pull ghcr.io/00o-sh/windows-server:ltsc2016-eval
-docker pull ghcr.io/00o-sh/windows-server:ltsc2019-eval
-docker pull ghcr.io/00o-sh/windows-server:ltsc2022-eval
-docker pull ghcr.io/00o-sh/windows-server:ltsc2025-eval
+docker pull ghcr.io/00o-sh/windows-server:2025
+docker pull ghcr.io/00o-sh/windows-server:2022
+docker pull ghcr.io/00o-sh/windows-server:2019
+docker pull ghcr.io/00o-sh/windows-server:2016
 
 # No-prompt versions for automated boot
-docker pull ghcr.io/00o-sh/windows-server:ltsc2016-eval-np
-docker pull ghcr.io/00o-sh/windows-server:ltsc2019-eval-np
-docker pull ghcr.io/00o-sh/windows-server:ltsc2022-eval-np
-docker pull ghcr.io/00o-sh/windows-server:ltsc2025-eval-np
+docker pull ghcr.io/00o-sh/windows-server:2025-np
+docker pull ghcr.io/00o-sh/windows-server:rolling-np  # latest
 
 # VirtIO drivers (~700MB)
 docker pull ghcr.io/00o-sh/windows-drivers:server
@@ -66,7 +61,7 @@ spec:
       volumes:
         - name: windows-iso
           containerDisk:
-            image: ghcr.io/00o-sh/windows-server:ltsc2022-eval-np  # Use -np for automated boot
+            image: ghcr.io/00o-sh/windows-server:rolling-np  # Use -np for automated boot
         - name: drivers-iso
           containerDisk:
             image: ghcr.io/00o-sh/windows-drivers:server

@@ -32,11 +32,11 @@ jobs:
         id: set-matrix
         run: |
           if [ "${{ github.event.inputs.version }}" == "win10-ltsc2021" ]; then
-            MATRIX='{"include":[{"version":"win10-ltsc2021","tag":"win10-ltsc2021-eval","url":"https://software-static.download.prss.microsoft.com/db/download/444969d5-f34g-4e03-ac9d-1f9786c69161/19044.1288.211006-0501.21h2_release_svc_refresh_CLIENT_LTSC_EVAL_x64FRE_en-us.iso","cache_key":"v1"}]}'
+            MATRIX='{"include":[{"version":"win10-ltsc2021","tag":"10","url":"https://software-static.download.prss.microsoft.com/db/download/444969d5-f34g-4e03-ac9d-1f9786c69161/19044.1288.211006-0501.21h2_release_svc_refresh_CLIENT_LTSC_EVAL_x64FRE_en-us.iso","rolling":false}]}'
           elif [ "${{ github.event.inputs.version }}" == "win11-ltsc2024" ]; then
-            MATRIX='{"include":[{"version":"win11-ltsc2024","tag":"win11-ltsc2024-eval","url":"https://software-static.download.prss.microsoft.com/dbazure/888969d5-f34g-4e03-ac9d-1f9786c66749/26100.1742.240906-0331.ge_release_svc_refresh_CLIENT_LTSC_EVAL_x64FRE_en-us.iso","cache_key":"v1"}]}'
+            MATRIX='{"include":[{"version":"win11-ltsc2024","tag":"11","url":"https://software-static.download.prss.microsoft.com/dbazure/888969d5-f34g-4e03-ac9d-1f9786c66749/26100.1742.240906-0331.ge_release_svc_refresh_CLIENT_LTSC_EVAL_x64FRE_en-us.iso","rolling":true}]}'
           else
-            MATRIX='{"include":[{"version":"win10-ltsc2021","tag":"win10-ltsc2021-eval","url":"https://software-static.download.prss.microsoft.com/db/download/444969d5-f34g-4e03-ac9d-1f9786c69161/19044.1288.211006-0501.21h2_release_svc_refresh_CLIENT_LTSC_EVAL_x64FRE_en-us.iso","cache_key":"v1"},{"version":"win11-ltsc2024","tag":"win11-ltsc2024-eval","url":"https://software-static.download.prss.microsoft.com/dbazure/888969d5-f34g-4e03-ac9d-1f9786c66749/26100.1742.240906-0331.ge_release_svc_refresh_CLIENT_LTSC_EVAL_x64FRE_en-us.iso","cache_key":"v1"}]}'
+            MATRIX='{"include":[{"version":"win10-ltsc2021","tag":"10","url":"https://software-static.download.prss.microsoft.com/db/download/444969d5-f34g-4e03-ac9d-1f9786c69161/19044.1288.211006-0501.21h2_release_svc_refresh_CLIENT_LTSC_EVAL_x64FRE_en-us.iso","rolling":false},{"version":"win11-ltsc2024","tag":"11","url":"https://software-static.download.prss.microsoft.com/dbazure/888969d5-f34g-4e03-ac9d-1f9786c66749/26100.1742.240906-0331.ge_release_svc_refresh_CLIENT_LTSC_EVAL_x64FRE_en-us.iso","rolling":true}]}'
           fi
           echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
 
@@ -115,6 +115,11 @@ jobs:
       - name: Build and push Windows ${{ matrix.version }} ISO image
         working-directory: containerdisk-windows-client
         run: |
+          TAGS="-t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}"
+          if [ "${{ matrix.rolling }}" == "true" ]; then
+            TAGS="$TAGS -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:rolling"
+          fi
+
           docker build -f Dockerfile.windows \
             --build-arg ISO_FILE=CLIENT_EVAL.iso \
             --label "org.opencontainers.image.title=Windows ${{ matrix.version }} Evaluation ISO" \
@@ -122,24 +127,21 @@ jobs:
             --label "org.opencontainers.image.created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
             --label "org.opencontainers.image.revision=${{ github.sha }}" \
             --label "org.opencontainers.image.version=${{ matrix.tag }}" \
-            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }} .
+            $TAGS .
+
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }} | tee push.log
+          DIGEST=$(grep -oP 'digest: \Ksha256:[a-f0-9]+' push.log)
 
-          # Output for Renovate - extract digest from push output
-          DIGEST=$(grep -oP 'digest: \Ksha256:[a-f0-9]+' push.log || docker inspect --format='{{index .RepoDigests 0}}' ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }} | cut -d'@' -f2)
-          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}"
-          IMAGE_WITH_DIGEST="${IMAGE_TAG}@${DIGEST}"
+          if [ "${{ matrix.rolling }}" == "true" ]; then
+            docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:rolling
+          fi
 
-          echo "## Windows ${{ matrix.version }} ISO" >> $GITHUB_STEP_SUMMARY
+          echo "## Windows ${{ matrix.version }}" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          echo "${IMAGE_TAG}" >> $GITHUB_STEP_SUMMARY
-          echo "${IMAGE_WITH_DIGEST}" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Renovate:" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          echo "# renovate: datasource=docker depName=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}" >> $GITHUB_STEP_SUMMARY
-          echo "image: ${IMAGE_WITH_DIGEST}" >> $GITHUB_STEP_SUMMARY
+          echo "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}@${DIGEST}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ matrix.rolling }}" == "true" ]; then
+            echo "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:rolling@${DIGEST}" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
 
   build-noprompt:
@@ -230,6 +232,11 @@ jobs:
       - name: Build and push no-prompt ISO image
         working-directory: containerdisk-windows-client
         run: |
+          TAGS="-t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}-np"
+          if [ "${{ matrix.rolling }}" == "true" ]; then
+            TAGS="$TAGS -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:rolling-np"
+          fi
+
           cat > Dockerfile.noprompt << EOF
           FROM scratch
           LABEL org.opencontainers.image.title="Windows ${{ matrix.version }} Evaluation ISO (No-Prompt EFI)"
@@ -244,23 +251,19 @@ jobs:
             --label "org.opencontainers.image.created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
             --label "org.opencontainers.image.revision=${{ github.sha }}" \
             --label "org.opencontainers.image.version=${{ matrix.tag }}-np" \
-            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}-np .
+            $TAGS .
+
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}-np | tee push.log
+          DIGEST=$(grep -oP 'digest: \Ksha256:[a-f0-9]+' push.log)
 
-          # Output for Renovate - extract digest from push output
-          DIGEST=$(grep -oP 'digest: \Ksha256:[a-f0-9]+' push.log || docker inspect --format='{{index .RepoDigests 0}}' ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}-np | cut -d'@' -f2)
-          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}-np"
-          IMAGE_WITH_DIGEST="${IMAGE_TAG}@${DIGEST}"
+          if [ "${{ matrix.rolling }}" == "true" ]; then
+            docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:rolling-np
+          fi
 
-          echo "## Windows ${{ matrix.version }} ISO (No-Prompt)" >> $GITHUB_STEP_SUMMARY
+          echo "## Windows ${{ matrix.version }} (No-Prompt)" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          echo "${IMAGE_TAG}" >> $GITHUB_STEP_SUMMARY
-          echo "${IMAGE_WITH_DIGEST}" >> $GITHUB_STEP_SUMMARY
+          echo "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.tag }}-np@${DIGEST}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ matrix.rolling }}" == "true" ]; then
+            echo "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:rolling-np@${DIGEST}" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Renovate:" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          echo "# renovate: datasource=docker depName=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}" >> $GITHUB_STEP_SUMMARY
-          echo "image: ${IMAGE_WITH_DIGEST}" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          echo "*No-prompt version skips 'Press any key to boot from CD'*" >> $GITHUB_STEP_SUMMARY

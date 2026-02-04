@@ -10,10 +10,9 @@ Container images for deploying Windows 10/11 LTSC Evaluation editions in KubeVir
 
 | Version | Tag | Description |
 |---------|-----|-------------|
-| Win10 LTSC 2021 | `win10-ltsc2021-eval` | Windows 10 Enterprise LTSC 2021 Evaluation |
-| Win10 LTSC 2021 | `win10-ltsc2021-eval-np` | Windows 10 LTSC 2021 (no-prompt EFI) |
-| Win11 LTSC 2024 | `win11-ltsc2024-eval` | Windows 11 Enterprise LTSC 2024 Evaluation |
-| Win11 LTSC 2024 | `win11-ltsc2024-eval-np` | Windows 11 LTSC 2024 (no-prompt EFI) |
+| Win10 LTSC 2021 | `10` / `10-np` | Windows 10 Enterprise LTSC 2021 Evaluation |
+| Win11 LTSC 2024 | `11` / `11-np` | Windows 11 Enterprise LTSC 2024 Evaluation |
+| Latest | `rolling` / `rolling-np` | Latest version (currently Win11) |
 
 **No-prompt (`-np`) versions:** Skip "Press any key to boot from CD" for fully automated EFI boot.
 
@@ -25,12 +24,12 @@ Container images for deploying Windows 10/11 LTSC Evaluation editions in KubeVir
 
 ```bash
 # Windows Client images (~4-5GB each)
-docker pull ghcr.io/00o-sh/windows-client:win10-ltsc2021-eval
-docker pull ghcr.io/00o-sh/windows-client:win11-ltsc2024-eval
+docker pull ghcr.io/00o-sh/windows-client:11
+docker pull ghcr.io/00o-sh/windows-client:10
 
 # No-prompt versions for automated boot
-docker pull ghcr.io/00o-sh/windows-client:win10-ltsc2021-eval-np
-docker pull ghcr.io/00o-sh/windows-client:win11-ltsc2024-eval-np
+docker pull ghcr.io/00o-sh/windows-client:rolling-np  # latest
+docker pull ghcr.io/00o-sh/windows-client:11-np
 
 # VirtIO drivers (~700MB)
 docker pull ghcr.io/00o-sh/windows-drivers:client
@@ -57,7 +56,7 @@ spec:
       volumes:
         - name: windows-iso
           containerDisk:
-            image: ghcr.io/00o-sh/windows-client:win11-ltsc2024-eval-np
+            image: ghcr.io/00o-sh/windows-client:rolling-np
         - name: drivers-iso
           containerDisk:
             image: ghcr.io/00o-sh/windows-drivers:client
