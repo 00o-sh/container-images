@@ -154,8 +154,8 @@
         </SynchronousCommand>
         <SynchronousCommand wcm:action="add">
           <Order>3</Order>
-          <CommandLine>powershell -Command "$iso = (Get-Volume | Where-Object {$_.FileSystemLabel -eq 'WS2022_EVAL'}).DriveLetter; if ($iso) { Start-Process msiexec -ArgumentList '/i', \"${iso}:\virtio-win-gt-x64.msi\", '/quiet', '/norestart' -Wait }"</CommandLine>
-          <Description>Install VirtIO drivers from ISO</Description>
+          <CommandLine>powershell -Command "$drv = (Get-Volume | Where-Object {$_.FileSystemLabel -eq 'OEMDRV'}).DriveLetter; if ($drv) { Start-Process msiexec -ArgumentList '/i', \"${drv}:\virtio-win-gt-x64.msi\", '/quiet', '/norestart' -Wait }"</CommandLine>
+          <Description>Install VirtIO drivers from drivers ISO</Description>
         </SynchronousCommand>
       </FirstLogonCommands>
     </component>

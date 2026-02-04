@@ -1,48 +1,87 @@
 # Windows Server 2022 Evaluation ContainerDisk
 
-A minimal container image containing the Windows Server 2022 **Evaluation** ISO for use as a ContainerDisk.
+Container images for deploying Windows Server 2022 Evaluation in KubeVirt.
 
 > **Note:** This contains a 180-day evaluation license. Not for production use.
 
-## Automated Build
+## Images
 
-This image is built automatically via GitHub Actions:
-- Triggers on push to `main` or manual dispatch
-- Downloads ISO directly from Microsoft
-- Pushes to `ghcr.io`
+| Image | Description | Size |
+|-------|-------------|------|
+| `ghcr.io/00o-sh/windows-server-2022-eval-iso:ltsc2022-eval` | Windows Server 2022 ISO (bootable) | ~5.2GB |
+| `ghcr.io/00o-sh/windows-virtio-drivers:ltsc2022-eval` | VirtIO drivers + autounattend.xml | ~700MB |
 
-To trigger manually: **Actions** → **Build Windows Server 2022 ContainerDisk** → **Run workflow**
+## Usage in KubeVirt
 
-## Structure
+Mount both images as CDROMs in your VirtualMachine spec:
 
-```
-/disk/
-└── disk.img
-```
-
-## Prerequisites
-
-Download the Windows Server 2022 Evaluation ISO from the [Microsoft Evaluation Center](https://www.microsoft.com/en-us/evalcenter/evaluate-windows-server-2022):
-
-- File: `SERVER_EVAL_x64FRE_en-us.iso` (~5.2GB)
-- License: 180-day evaluation
-
-Place the ISO file in this directory before building.
-
-## Build
-
-```bash
-docker build -t ghcr.io/00o-sh/windows-server-2022-eval-iso:ltsc2022-eval .
-```
-
-## Push
-
-```bash
-docker push ghcr.io/00o-sh/windows-server-2022-eval-iso:ltsc2022-eval
+```yaml
+spec:
+  template:
+    spec:
+      domain:
+        devices:
+          disks:
+            - name: windows-iso
+              cdrom:
+                bus: sata
+              bootOrder: 1
+            - name: drivers-iso
+              cdrom:
+                bus: sata
+      volumes:
+        - name: windows-iso
+          containerDisk:
+            image: ghcr.io/00o-sh/windows-server-2022-eval-iso:ltsc2022-eval
+        - name: drivers-iso
+          containerDisk:
+            image: ghcr.io/00o-sh/windows-virtio-drivers:ltsc2022-eval
 ```
 
-## Notes
+Windows Setup will automatically:
+1. Boot from the Windows ISO
+2. Find `autounattend.xml` on the drivers ISO (OEMDRV volume)
+3. Load VirtIO drivers during installation
+4. Install VirtIO guest tools on first login
 
-- Base image is `scratch` (empty container)
-- ISO is placed in `/disk/disk.img` (KubeVirt containerDisk naming convention)
-- Final image size: ~5.2GB
+## Automated Builds
+
+Two separate GitHub Actions workflows:
+
+- **Build Windows Server 2022 ISO** - Triggers on `Dockerfile.windows` changes
+- **Build Windows VirtIO Drivers ISO** - Triggers on `Dockerfile.drivers` or `autounattend.xml` changes
+
+To trigger manually: **Actions** → Select workflow → **Run workflow**
+
+## Files
+
+| File | Purpose |
+|------|---------|
+| `Dockerfile.windows` | Windows ISO container image |
+| `Dockerfile.drivers` | Drivers ISO container image |
+| `autounattend.xml` | Unattended installation config |
+
+## Drivers ISO Contents
+
+```
+/
+├── autounattend.xml          # Unattended install config
+├── virtio-win-gt-x64.msi     # VirtIO guest tools installer
+├── virtio-win-guest-tools.exe
+└── virtio/                   # VirtIO drivers
+    ├── vioscsi/2k22/amd64/   # SCSI controller
+    ├── viostor/2k22/amd64/   # Block storage
+    ├── NetKVM/2k22/amd64/    # Network adapter
+    ├── Balloon/2k22/amd64/   # Memory ballooning
+    ├── vioserial/2k22/amd64/ # Serial/guest agent
+    ├── viorng/2k22/amd64/    # RNG
+    ├── qxldod/2k22/amd64/    # QXL display
+    └── pvpanic/2k22/amd64/   # Panic notification
+```
+
+## Default Credentials
+
+| Account | Password |
+|---------|----------|
+| Administrator | Admin123! |
+| user | User123! |
