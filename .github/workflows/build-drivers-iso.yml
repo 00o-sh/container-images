@@ -87,14 +87,13 @@ jobs:
           docker build -f Dockerfile.drivers \
             --label "org.opencontainers.image.created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
             --label "org.opencontainers.image.revision=${{ github.sha }}" \
-            --label "org.opencontainers.image.version=ltsc2022-eval" \
-            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022-eval .
-          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022-eval
+            --label "org.opencontainers.image.version=server" \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:server .
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:server | tee push.log
 
-          # Get digest and format for Renovate compatibility (image:tag@sha256:...)
-          DIGEST_FULL=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022-eval)
-          SHA=$(echo "$DIGEST_FULL" | cut -d'@' -f2)
-          IMAGE_WITH_DIGEST="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ltsc2022-eval@${SHA}"
+          # Output for Renovate - extract digest from push output
+          DIGEST=$(grep -oP 'digest: \Ksha256:[a-f0-9]+' push.log || docker inspect --format='{{index .RepoDigests 0}}' ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:server | cut -d'@' -f2)
+          IMAGE_WITH_DIGEST="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:server@${DIGEST}"
 
           echo "## Drivers ISO Image" >> $GITHUB_STEP_SUMMARY
           echo "**Image:** \`${IMAGE_WITH_DIGEST}\`" >> $GITHUB_STEP_SUMMARY
