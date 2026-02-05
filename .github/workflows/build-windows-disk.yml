@@ -169,6 +169,7 @@ jobs:
           echo "path=$ISO_PATH" >> $GITHUB_OUTPUT
 
       - name: Create OEMDRV ISO with VirtIO drivers and autounattend
+        id: oemdrv-iso
         working-directory: packer-windows-server
         run: |
           mkdir -p oemdrv-contents
@@ -183,6 +184,9 @@ jobs:
           ls -lh oemdrv.iso
           rm -rf oemdrv-contents
 
+          # Output absolute path
+          echo "path=$(pwd)/oemdrv.iso" >> $GITHUB_OUTPUT
+
       - name: Build disk image with Packer
         working-directory: packer-windows-server
         run: |
@@ -192,10 +196,12 @@ jobs:
           echo "  Accelerator: ${{ steps.kvm.outputs.accelerator }}"
           echo "  EFI firmware: ${{ steps.ovmf.outputs.efi_code }}"
           echo "  Windows ISO: ${{ steps.windows-iso.outputs.path }}"
+          echo "  OEMDRV ISO: ${{ steps.oemdrv-iso.outputs.path }}"
 
           packer build \
             -var "iso_url=${{ steps.windows-iso.outputs.path }}" \
             -var "iso_checksum=none" \
+            -var "oemdrv_iso=${{ steps.oemdrv-iso.outputs.path }}" \
             -var "accelerator=${{ steps.kvm.outputs.accelerator }}" \
             -var "efi_firmware_code=${{ steps.ovmf.outputs.efi_code }}" \
             -var "efi_firmware_vars=${{ steps.ovmf.outputs.efi_vars }}" \
