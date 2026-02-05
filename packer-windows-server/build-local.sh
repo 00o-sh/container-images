@@ -3,8 +3,28 @@ set -e
 
 cd "$(dirname "$0")"
 
+# Parse arguments
+INSTALL_DEPS=false
+HEADLESS=true
+
+for arg in "$@"; do
+    case $arg in
+        --install-deps) INSTALL_DEPS=true ;;
+        --gui) HEADLESS=false ;;
+        --help|-h)
+            echo "Usage: $0 [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  --install-deps  Install required dependencies"
+            echo "  --gui           Show QEMU window (requires X/display)"
+            echo "  --help          Show this help"
+            exit 0
+            ;;
+    esac
+done
+
 # Install dependencies if requested
-if [ "$1" == "--install-deps" ]; then
+if [ "$INSTALL_DEPS" == "true" ]; then
     echo "Installing dependencies..."
     sudo apt-get update
     sudo apt-get install -y \
@@ -113,18 +133,22 @@ packer init windows-server-2022.pkr.hcl
 # Run Packer
 echo ""
 echo "Starting Packer build..."
-echo "Accelerator: $ACCELERATOR"
+echo "  Accelerator: $ACCELERATOR"
+echo "  Headless: $HEADLESS"
+if [ "$HEADLESS" == "true" ]; then
+    echo ""
+    echo "Running headless. To view the VM, connect via VNC to the port shown in the logs."
+    echo "Or re-run with --gui if you have a display."
+fi
 echo ""
 
-# Add -debug flag to see VNC connection info for debugging
-# Remove PACKER_LOG=1 for cleaner output, add it back for debugging
 PACKER_LOG=1 packer build \
     -var "iso_url=$WINDOWS_ISO" \
     -var "iso_checksum=none" \
     -var "accelerator=$ACCELERATOR" \
     -var "efi_firmware_code=$EFI_CODE" \
     -var "efi_firmware_vars=$EFI_VARS" \
-    -var "headless=false" \
+    -var "headless=$HEADLESS" \
     windows-server-2022.pkr.hcl
 
 echo ""
