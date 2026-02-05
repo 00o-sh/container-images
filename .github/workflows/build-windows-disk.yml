@@ -168,13 +168,14 @@ jobs:
           echo "VirtIO ISO: $ISO_PATH ($(ls -lhL "$ISO_PATH" | awk '{print $5}'))"
           echo "path=$ISO_PATH" >> $GITHUB_OUTPUT
 
-      - name: Create OEMDRV ISO with VirtIO drivers and autounattend
+      - name: Create OEMDRV ISO with VirtIO drivers
         id: oemdrv-iso
         working-directory: packer-windows-server
         run: |
+          # Extract VirtIO drivers to create OEMDRV ISO
+          # autounattend.xml is now on floppy (Packer handles this)
           mkdir -p oemdrv-contents
           7z x "${{ steps.virtio-iso.outputs.path }}" -ooemdrv-contents -y
-          cp autounattend.xml oemdrv-contents/
 
           genisoimage -o oemdrv.iso \
             -V "OEMDRV" \

@@ -109,17 +109,19 @@ source "qemu" "windows-server-2022" {
   efi_firmware_code = var.efi_firmware_code
   efi_firmware_vars = var.efi_firmware_vars
 
-  # OEMDRV ISO contains VirtIO drivers + autounattend.xml (created by workflow)
-  # Use strict boot order and disable network boot ROM
+  # Autounattend.xml on floppy (Windows Setup looks here automatically)
+  floppy_files = ["autounattend.xml"]
+
+  # VirtIO drivers ISO as secondary CD-ROM
   qemuargs = [
-    ["-boot", "strict=on"],
-    ["-drive", "file=${var.oemdrv_iso},media=cdrom,index=1"],
+    ["-cdrom", "${var.oemdrv_iso}"],
     ["-global", "virtio-net-pci.romfile="],
   ]
 
-  # Boot Configuration
-  boot_wait = "5s"
-  boot_command = ["<enter>"]
+  # Boot Configuration - reset trick for EFI boot
+  # Wait for initial boot attempt, reset to let OVMF retry with correct boot order
+  boot_wait    = "3s"
+  boot_command = ["<spacebar>"]
 
   # WinRM Communication
   communicator   = "winrm"
