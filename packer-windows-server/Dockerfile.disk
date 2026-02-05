@@ -1,0 +1,16 @@
+# Minimal container image for Windows Server disk image
+# Used as a KubeVirt ContainerDisk or DataVolume source
+
+FROM scratch
+
+ARG DISK_FILE=windows-server-2022.qcow2
+
+LABEL org.opencontainers.image.title="Windows Server 2022 Disk Image"
+LABEL org.opencontainers.image.description="Pre-installed, sysprepped Windows Server 2022 QCOW2 disk image for KubeVirt"
+LABEL org.opencontainers.image.vendor="00o-sh"
+LABEL org.opencontainers.image.licenses="Proprietary"
+LABEL org.opencontainers.image.source="https://github.com/00o-sh/container-images"
+
+# Add the disk image
+# KubeVirt expects the disk at /disk/disk.img
+ADD ${DISK_FILE} /disk/disk.img
