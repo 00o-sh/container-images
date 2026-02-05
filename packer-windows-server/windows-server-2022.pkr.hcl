@@ -109,18 +109,11 @@ source "qemu" "windows-server-2022" {
   efi_firmware_code = var.efi_firmware_code
   efi_firmware_vars = var.efi_firmware_vars
 
-  # Additional drives for VirtIO drivers and autounattend
+  # OEMDRV ISO contains VirtIO drivers + autounattend.xml (created by workflow)
+  # Mounted at index 1 = E: drive, matching paths in autounattend.xml
   qemuargs = [
-    ["-drive", "file=${var.virtio_iso_url},media=cdrom,index=1"],
-    ["-drive", "file=output-drivers/oemdrv.iso,media=cdrom,index=2"],
+    ["-drive", "file=oemdrv.iso,media=cdrom,index=1"],
   ]
-
-  # Secondary CD with autounattend.xml and scripts
-  cd_files = [
-    "autounattend.xml",
-    "scripts/"
-  ]
-  cd_label = "OEMDRV"
 
   # Boot Configuration
   boot_wait = "5s"
