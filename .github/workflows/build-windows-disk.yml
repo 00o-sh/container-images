@@ -115,14 +115,26 @@ jobs:
       - name: Download Windows Server 2022 ISO
         working-directory: packer-windows-server
         run: |
-          if [ -f "windows-server-2022.iso" ]; then
-            echo "Windows ISO already exists, skipping download"
+          # For self-hosted runners, use a persistent cache directory
+          if [ "${{ github.event.inputs.runner }}" == "self-hosted" ]; then
+            CACHE_DIR="$HOME/iso-cache"
+            mkdir -p "$CACHE_DIR"
+
+            if [ -f "$CACHE_DIR/windows-server-2022.iso" ]; then
+              echo "Using cached Windows ISO from $CACHE_DIR"
+              ln -sf "$CACHE_DIR/windows-server-2022.iso" windows-server-2022.iso
+            else
+              echo "Downloading Windows Server 2022 Evaluation ISO to cache..."
+              curl -L -o "$CACHE_DIR/windows-server-2022.iso" "https://go.microsoft.com/fwlink/p/?LinkID=2195280&clcid=0x409&culture=en-us&country=US"
+              ln -sf "$CACHE_DIR/windows-server-2022.iso" windows-server-2022.iso
+            fi
           else
+            # GitHub-hosted runners: download directly
             echo "Downloading Windows Server 2022 Evaluation ISO..."
             curl -L -o windows-server-2022.iso "https://go.microsoft.com/fwlink/p/?LinkID=2195280&clcid=0x409&culture=en-us&country=US"
           fi
 
-          SIZE=$(stat -c%s "windows-server-2022.iso")
+          SIZE=$(stat -c%s "windows-server-2022.iso" 2>/dev/null || stat -f%z "windows-server-2022.iso")
           if [ "$SIZE" -lt 1000000000 ]; then
             echo "ERROR: ISO is only $SIZE bytes. Download may have failed."
             exit 1
@@ -132,9 +144,21 @@ jobs:
       - name: Download VirtIO drivers ISO
         working-directory: packer-windows-server
         run: |
-          if [ -f "virtio-win.iso" ]; then
-            echo "VirtIO ISO already exists, skipping download"
+          # For self-hosted runners, use a persistent cache directory
+          if [ "${{ github.event.inputs.runner }}" == "self-hosted" ]; then
+            CACHE_DIR="$HOME/iso-cache"
+            mkdir -p "$CACHE_DIR"
+
+            if [ -f "$CACHE_DIR/virtio-win.iso" ]; then
+              echo "Using cached VirtIO ISO from $CACHE_DIR"
+              ln -sf "$CACHE_DIR/virtio-win.iso" virtio-win.iso
+            else
+              echo "Downloading VirtIO drivers ISO to cache..."
+              curl -L -o "$CACHE_DIR/virtio-win.iso" "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso"
+              ln -sf "$CACHE_DIR/virtio-win.iso" virtio-win.iso
+            fi
           else
+            # GitHub-hosted runners: download directly
             echo "Downloading VirtIO drivers ISO..."
             curl -L -o virtio-win.iso "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso"
           fi
