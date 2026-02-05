@@ -22,10 +22,10 @@ variable "iso_checksum" {
   default     = "none"
 }
 
-variable "virtio_iso_url" {
+variable "oemdrv_iso" {
   type        = string
-  description = "URL or path to the VirtIO drivers ISO"
-  default     = "virtio-win.iso"
+  description = "Path to the OEMDRV ISO (VirtIO drivers + autounattend.xml)"
+  default     = "oemdrv.iso"
 }
 
 variable "disk_size" {
@@ -112,7 +112,7 @@ source "qemu" "windows-server-2022" {
   # OEMDRV ISO contains VirtIO drivers + autounattend.xml (created by workflow)
   # Mounted at index 1 = E: drive, matching paths in autounattend.xml
   qemuargs = [
-    ["-drive", "file=oemdrv.iso,media=cdrom,index=1"],
+    ["-drive", "file=${var.oemdrv_iso},media=cdrom,index=1"],
   ]
 
   # Boot Configuration
