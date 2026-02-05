@@ -134,12 +134,13 @@ jobs:
             curl -L -o windows-server-2022.iso "https://go.microsoft.com/fwlink/p/?LinkID=2195280&clcid=0x409&culture=en-us&country=US"
           fi
 
-          SIZE=$(stat -c%s "windows-server-2022.iso" 2>/dev/null || stat -f%z "windows-server-2022.iso")
+          # Use -L to dereference symlinks when checking size
+          SIZE=$(stat -L -c%s "windows-server-2022.iso" 2>/dev/null || stat -L -f%z "windows-server-2022.iso")
           if [ "$SIZE" -lt 1000000000 ]; then
             echo "ERROR: ISO is only $SIZE bytes. Download may have failed."
             exit 1
           fi
-          echo "Windows ISO size: $(ls -lh windows-server-2022.iso | awk '{print $5}')"
+          echo "Windows ISO size: $(ls -lhL windows-server-2022.iso | awk '{print $5}')"
 
       - name: Download VirtIO drivers ISO
         working-directory: packer-windows-server
