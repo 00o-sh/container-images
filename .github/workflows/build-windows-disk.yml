@@ -182,23 +182,27 @@ jobs:
             echo "Using TCG (software emulation) - this will be slow!"
           fi
 
-      - name: Create drivers ISO with autounattend
+      - name: Create OEMDRV ISO with VirtIO drivers and autounattend
         working-directory: packer-windows-server
         run: |
           # Extract VirtIO drivers
-          mkdir -p output-drivers/virtio
-          7z x virtio-win.iso -ooutput-drivers/virtio
+          mkdir -p oemdrv-contents
+          7z x virtio-win.iso -ooemdrv-contents
 
-          # Copy autounattend.xml to drivers ISO root
-          cp autounattend.xml output-drivers/virtio/
+          # Copy autounattend.xml to ISO root (Windows looks for it here)
+          cp autounattend.xml oemdrv-contents/
 
-          # Create ISO with autounattend.xml
-          genisoimage -o output-drivers/oemdrv.iso \
+          # Create OEMDRV ISO - this will be mounted as E: drive
+          # Windows autounattend.xml references E: for VirtIO driver paths
+          genisoimage -o oemdrv.iso \
             -V "OEMDRV" \
             -J -r \
-            output-drivers/virtio/
+            oemdrv-contents/
 
-          ls -lh output-drivers/oemdrv.iso
+          ls -lh oemdrv.iso
+
+          # Cleanup extracted files to save space
+          rm -rf oemdrv-contents
 
       - name: Build disk image with Packer
         working-directory: packer-windows-server
@@ -207,10 +211,13 @@ jobs:
           echo "EFI firmware: ${{ steps.ovmf.outputs.efi_code }}"
           echo "This may take several hours in TCG mode."
 
+          # Drive layout:
+          # - D: Windows ISO (boot/install media)
+          # - E: OEMDRV ISO (VirtIO drivers + autounattend.xml)
+
           packer build \
             -var "iso_url=windows-server-2022.iso" \
             -var "iso_checksum=none" \
-            -var "virtio_iso_url=virtio-win.iso" \
             -var "accelerator=${{ steps.accel.outputs.accelerator }}" \
             -var "efi_firmware_code=${{ steps.ovmf.outputs.efi_code }}" \
             -var "efi_firmware_vars=${{ steps.ovmf.outputs.efi_vars }}" \
