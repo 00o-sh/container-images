@@ -113,63 +113,66 @@ jobs:
         run: packer init windows-server-2022.pkr.hcl
 
       - name: Download Windows Server 2022 ISO
+        id: windows-iso
         working-directory: packer-windows-server
         run: |
           # For self-hosted runners, use a persistent cache directory
           if [ "${{ github.event.inputs.runner }}" == "self-hosted" ]; then
             CACHE_DIR="$HOME/iso-cache"
             mkdir -p "$CACHE_DIR"
+            ISO_PATH="$CACHE_DIR/windows-server-2022.iso"
 
-            if [ -f "$CACHE_DIR/windows-server-2022.iso" ]; then
-              echo "Using cached Windows ISO from $CACHE_DIR"
-              ln -sf "$CACHE_DIR/windows-server-2022.iso" windows-server-2022.iso
-            else
+            if [ ! -f "$ISO_PATH" ]; then
               echo "Downloading Windows Server 2022 Evaluation ISO to cache..."
-              curl -L -o "$CACHE_DIR/windows-server-2022.iso" "https://go.microsoft.com/fwlink/p/?LinkID=2195280&clcid=0x409&culture=en-us&country=US"
-              ln -sf "$CACHE_DIR/windows-server-2022.iso" windows-server-2022.iso
+              curl -L -o "$ISO_PATH" "https://go.microsoft.com/fwlink/p/?LinkID=2195280&clcid=0x409&culture=en-us&country=US"
+            else
+              echo "Using cached Windows ISO from $CACHE_DIR"
             fi
           else
             # GitHub-hosted runners: download directly
             echo "Downloading Windows Server 2022 Evaluation ISO..."
             curl -L -o windows-server-2022.iso "https://go.microsoft.com/fwlink/p/?LinkID=2195280&clcid=0x409&culture=en-us&country=US"
+            ISO_PATH="windows-server-2022.iso"
           fi
 
-          # Use -L to dereference symlinks when checking size
-          SIZE=$(stat -L -c%s "windows-server-2022.iso" 2>/dev/null || stat -L -f%z "windows-server-2022.iso")
+          SIZE=$(stat -L -c%s "$ISO_PATH" 2>/dev/null || stat -L -f%z "$ISO_PATH")
           if [ "$SIZE" -lt 1000000000 ]; then
             echo "ERROR: ISO is only $SIZE bytes. Download may have failed."
             exit 1
           fi
-          echo "Windows ISO size: $(ls -lhL windows-server-2022.iso | awk '{print $5}')"
+          echo "Windows ISO: $ISO_PATH ($(ls -lhL "$ISO_PATH" | awk '{print $5}'))"
+          echo "path=$ISO_PATH" >> $GITHUB_OUTPUT
 
       - name: Download VirtIO drivers ISO
+        id: virtio-iso
         working-directory: packer-windows-server
         run: |
           # For self-hosted runners, use a persistent cache directory
           if [ "${{ github.event.inputs.runner }}" == "self-hosted" ]; then
             CACHE_DIR="$HOME/iso-cache"
             mkdir -p "$CACHE_DIR"
+            ISO_PATH="$CACHE_DIR/virtio-win.iso"
 
-            if [ -f "$CACHE_DIR/virtio-win.iso" ]; then
-              echo "Using cached VirtIO ISO from $CACHE_DIR"
-              ln -sf "$CACHE_DIR/virtio-win.iso" virtio-win.iso
-            else
+            if [ ! -f "$ISO_PATH" ]; then
               echo "Downloading VirtIO drivers ISO to cache..."
-              curl -L -o "$CACHE_DIR/virtio-win.iso" "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso"
-              ln -sf "$CACHE_DIR/virtio-win.iso" virtio-win.iso
+              curl -L -o "$ISO_PATH" "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso"
+            else
+              echo "Using cached VirtIO ISO from $CACHE_DIR"
             fi
           else
             # GitHub-hosted runners: download directly
             echo "Downloading VirtIO drivers ISO..."
             curl -L -o virtio-win.iso "https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-virtio/virtio-win.iso"
+            ISO_PATH="virtio-win.iso"
           fi
-          ls -lh virtio-win.iso
+          echo "VirtIO ISO: $ISO_PATH ($(ls -lhL "$ISO_PATH" | awk '{print $5}'))"
+          echo "path=$ISO_PATH" >> $GITHUB_OUTPUT
 
       - name: Create OEMDRV ISO with VirtIO drivers and autounattend
         working-directory: packer-windows-server
         run: |
           mkdir -p oemdrv-contents
-          7z x virtio-win.iso -ooemdrv-contents -y
+          7z x "${{ steps.virtio-iso.outputs.path }}" -ooemdrv-contents -y
           cp autounattend.xml oemdrv-contents/
 
           genisoimage -o oemdrv.iso \
@@ -188,9 +191,10 @@ jobs:
           echo "  KVM: ${{ steps.kvm.outputs.available }}"
           echo "  Accelerator: ${{ steps.kvm.outputs.accelerator }}"
           echo "  EFI firmware: ${{ steps.ovmf.outputs.efi_code }}"
+          echo "  Windows ISO: ${{ steps.windows-iso.outputs.path }}"
 
           packer build \
-            -var "iso_url=windows-server-2022.iso" \
+            -var "iso_url=${{ steps.windows-iso.outputs.path }}" \
             -var "iso_checksum=none" \
             -var "accelerator=${{ steps.kvm.outputs.accelerator }}" \
             -var "efi_firmware_code=${{ steps.ovmf.outputs.efi_code }}" \
