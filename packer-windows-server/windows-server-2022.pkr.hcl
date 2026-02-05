@@ -100,8 +100,8 @@ source "qemu" "windows-server-2022" {
   format           = "qcow2"
   disk_compression = true
 
-  # Network
-  net_device = "virtio-net"
+  # Network - disable boot ROM to prevent iPXE network boot
+  net_device = "virtio-net-pci"
 
   # UEFI Boot (required for Windows Server)
   machine_type      = "q35"
@@ -110,11 +110,11 @@ source "qemu" "windows-server-2022" {
   efi_firmware_vars = var.efi_firmware_vars
 
   # OEMDRV ISO contains VirtIO drivers + autounattend.xml (created by workflow)
-  # Mounted at index 1 = E: drive, matching paths in autounattend.xml
-  # Boot from CD-ROM (d) first, not network
+  # Use strict boot order and disable network boot ROM
   qemuargs = [
-    ["-boot", "order=d,menu=off"],
+    ["-boot", "strict=on"],
     ["-drive", "file=${var.oemdrv_iso},media=cdrom,index=1"],
+    ["-global", "virtio-net-pci.romfile="],
   ]
 
   # Boot Configuration
