@@ -14,11 +14,6 @@ on:
           - '2019'
           - '2022'
           - '2025'
-  push:
-    branches:
-      - main
-    # paths:
-    #   - 'containerdisk-windows-server/Dockerfile.windows'
 
 env:
   REGISTRY: ghcr.io

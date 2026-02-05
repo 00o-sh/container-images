@@ -12,11 +12,6 @@ on:
           - all
           - 'win10-ltsc2021'
           - 'win11-ltsc2024'
-  push:
-    branches:
-      - main
-    paths:
-      - 'containerdisk-windows-client/Dockerfile.windows'
 
 env:
   REGISTRY: ghcr.io

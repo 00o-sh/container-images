@@ -2,12 +2,6 @@ name: Build Windows VirtIO Drivers ISO
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    # paths:
-    #   - 'containerdisk-windows-server/Dockerfile.drivers'
-    #   - 'containerdisk-windows-server/autounattend.xml'
 
 env:
   REGISTRY: ghcr.io
