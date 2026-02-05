@@ -20,7 +20,17 @@ if [ "$1" == "--install-deps" ]; then
     if ! command -v packer &> /dev/null; then
         echo "Installing Packer..."
         PACKER_VERSION="1.10.0"
-        curl -fsSL "https://releases.hashicorp.com/packer/${PACKER_VERSION}/packer_${PACKER_VERSION}_linux_amd64.zip" -o /tmp/packer.zip
+
+        # Detect architecture
+        ARCH=$(uname -m)
+        case $ARCH in
+            x86_64)  PACKER_ARCH="amd64" ;;
+            aarch64) PACKER_ARCH="arm64" ;;
+            arm64)   PACKER_ARCH="arm64" ;;
+            *)       echo "ERROR: Unsupported architecture: $ARCH"; exit 1 ;;
+        esac
+
+        curl -fsSL "https://releases.hashicorp.com/packer/${PACKER_VERSION}/packer_${PACKER_VERSION}_linux_${PACKER_ARCH}.zip" -o /tmp/packer.zip
         unzip -o /tmp/packer.zip -d /tmp
         sudo mv /tmp/packer /usr/local/bin/
         rm /tmp/packer.zip
