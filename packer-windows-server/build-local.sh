@@ -30,7 +30,6 @@ if [ "$INSTALL_DEPS" == "true" ]; then
     sudo apt-get install -y \
         qemu-system-x86 \
         qemu-utils \
-        ovmf \
         p7zip-full \
         genisoimage \
         curl \
@@ -82,27 +81,7 @@ else
     echo "WARNING: No KVM - build will be SLOW (~3-4 hours)"
 fi
 
-# Find OVMF firmware
-for path in /usr/share/OVMF/OVMF_CODE_4M.fd /usr/share/OVMF/OVMF_CODE.fd /usr/share/edk2/ovmf/OVMF_CODE.fd; do
-    if [ -f "$path" ]; then
-        EFI_CODE="$path"
-        break
-    fi
-done
-
-for path in /usr/share/OVMF/OVMF_VARS_4M.fd /usr/share/OVMF/OVMF_VARS.fd /usr/share/edk2/ovmf/OVMF_VARS.fd; do
-    if [ -f "$path" ]; then
-        EFI_VARS="$path"
-        break
-    fi
-done
-
-if [ -z "$EFI_CODE" ] || [ -z "$EFI_VARS" ]; then
-    echo "ERROR: OVMF firmware not found. Install with: sudo apt install ovmf"
-    exit 1
-fi
-
-echo "Using OVMF: $EFI_CODE"
+# Using BIOS boot (no OVMF needed)
 
 # Download Windows ISO if missing
 if [ ! -f "$WINDOWS_ISO" ]; then
@@ -145,9 +124,8 @@ echo ""
 PACKER_LOG=1 packer build \
     -var "iso_url=$WINDOWS_ISO" \
     -var "iso_checksum=none" \
+    -var "oemdrv_iso=$OEMDRV_ISO" \
     -var "accelerator=$ACCELERATOR" \
-    -var "efi_firmware_code=$EFI_CODE" \
-    -var "efi_firmware_vars=$EFI_VARS" \
     -var "headless=$HEADLESS" \
     windows-server-2022.pkr.hcl
 

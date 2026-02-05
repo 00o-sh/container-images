@@ -48,7 +48,6 @@ jobs:
           sudo apt-get install -y \
             qemu-system-x86 \
             qemu-utils \
-            ovmf \
             genisoimage \
             p7zip-full \
             curl \
@@ -67,34 +66,7 @@ jobs:
             echo "accelerator=tcg" >> $GITHUB_OUTPUT
           fi
 
-      - name: Find OVMF firmware paths
-        id: ovmf
-        run: |
-          echo "Searching for OVMF firmware..."
-
-          for path in \
-            "/usr/share/OVMF/OVMF_CODE_4M.fd" \
-            "/usr/share/OVMF/OVMF_CODE.fd" \
-            "/usr/share/edk2/ovmf/OVMF_CODE.fd" \
-            "/usr/share/qemu/OVMF_CODE.fd"; do
-            if [ -f "$path" ]; then
-              echo "Found OVMF_CODE at: $path"
-              echo "efi_code=$path" >> $GITHUB_OUTPUT
-              break
-            fi
-          done
-
-          for path in \
-            "/usr/share/OVMF/OVMF_VARS_4M.fd" \
-            "/usr/share/OVMF/OVMF_VARS.fd" \
-            "/usr/share/edk2/ovmf/OVMF_VARS.fd" \
-            "/usr/share/qemu/OVMF_VARS.fd"; do
-            if [ -f "$path" ]; then
-              echo "Found OVMF_VARS at: $path"
-              echo "efi_vars=$path" >> $GITHUB_OUTPUT
-              break
-            fi
-          done
+      # Using BIOS boot - no OVMF firmware needed
 
       - name: Install Packer
         run: |
@@ -191,11 +163,10 @@ jobs:
       - name: Build disk image with Packer
         working-directory: packer-windows-server
         run: |
-          echo "Starting Packer build..."
+          echo "Starting Packer build (BIOS mode)..."
           echo "  Runner: ${{ github.event.inputs.runner || 'ubuntu-latest' }}"
           echo "  KVM: ${{ steps.kvm.outputs.available }}"
           echo "  Accelerator: ${{ steps.kvm.outputs.accelerator }}"
-          echo "  EFI firmware: ${{ steps.ovmf.outputs.efi_code }}"
           echo "  Windows ISO: ${{ steps.windows-iso.outputs.path }}"
           echo "  OEMDRV ISO: ${{ steps.oemdrv-iso.outputs.path }}"
 
@@ -204,8 +175,6 @@ jobs:
             -var "iso_checksum=none" \
             -var "oemdrv_iso=${{ steps.oemdrv-iso.outputs.path }}" \
             -var "accelerator=${{ steps.kvm.outputs.accelerator }}" \
-            -var "efi_firmware_code=${{ steps.ovmf.outputs.efi_code }}" \
-            -var "efi_firmware_vars=${{ steps.ovmf.outputs.efi_vars }}" \
             -var "headless=true" \
             -on-error=abort \
             windows-server-2022.pkr.hcl

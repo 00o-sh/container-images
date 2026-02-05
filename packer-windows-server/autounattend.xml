@@ -51,25 +51,13 @@
     </component>
 
     <component name="Microsoft-Windows-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
-      <!-- Disk configuration for UEFI -->
+      <!-- Disk configuration for BIOS/MBR -->
       <DiskConfiguration>
         <Disk wcm:action="add">
           <CreatePartitions>
-            <!-- EFI System Partition -->
+            <!-- Single Windows Partition using all space -->
             <CreatePartition wcm:action="add">
               <Order>1</Order>
-              <Type>EFI</Type>
-              <Size>100</Size>
-            </CreatePartition>
-            <!-- Microsoft Reserved Partition -->
-            <CreatePartition wcm:action="add">
-              <Order>2</Order>
-              <Type>MSR</Type>
-              <Size>128</Size>
-            </CreatePartition>
-            <!-- Windows Partition -->
-            <CreatePartition wcm:action="add">
-              <Order>3</Order>
               <Type>Primary</Type>
               <Extend>true</Extend>
             </CreatePartition>
@@ -78,18 +66,9 @@
             <ModifyPartition wcm:action="add">
               <Order>1</Order>
               <PartitionID>1</PartitionID>
-              <Format>FAT32</Format>
-              <Label>EFI</Label>
-            </ModifyPartition>
-            <ModifyPartition wcm:action="add">
-              <Order>2</Order>
-              <PartitionID>2</PartitionID>
-            </ModifyPartition>
-            <ModifyPartition wcm:action="add">
-              <Order>3</Order>
-              <PartitionID>3</PartitionID>
               <Format>NTFS</Format>
               <Label>Windows</Label>
+              <Active>true</Active>
             </ModifyPartition>
           </ModifyPartitions>
           <DiskID>0</DiskID>
@@ -102,7 +81,7 @@
         <OSImage>
           <InstallTo>
             <DiskID>0</DiskID>
-            <PartitionID>3</PartitionID>
+            <PartitionID>1</PartitionID>
           </InstallTo>
           <InstallFrom>
             <MetaData wcm:action="add">

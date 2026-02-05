@@ -58,17 +58,7 @@ variable "accelerator" {
   default     = "kvm"
 }
 
-variable "efi_firmware_code" {
-  type        = string
-  description = "Path to OVMF firmware code"
-  default     = "/usr/share/OVMF/OVMF_CODE_4M.fd"
-}
-
-variable "efi_firmware_vars" {
-  type        = string
-  description = "Path to OVMF firmware vars"
-  default     = "/usr/share/OVMF/OVMF_VARS_4M.fd"
-}
+# EFI variables removed - using BIOS boot for reliability
 
 variable "winrm_username" {
   type    = string
@@ -100,29 +90,23 @@ source "qemu" "windows-server-2022" {
   format           = "qcow2"
   disk_compression = true
 
-  # Network - disable boot ROM to prevent iPXE network boot
+  # Network
   net_device = "virtio-net-pci"
 
-  # UEFI Boot (required for Windows Server)
-  machine_type      = "q35"
-  efi_boot          = true
-  efi_firmware_code = var.efi_firmware_code
-  efi_firmware_vars = var.efi_firmware_vars
+  # BIOS Boot (more reliable than UEFI for Packer builds)
+  machine_type = "q35"
 
-  # Autounattend.xml on floppy (Windows Setup checks A: drive)
+  # Autounattend.xml and scripts on floppy (Windows Setup checks A: drive)
   floppy_files = ["autounattend.xml"]
 
-  # VirtIO drivers ISO mounted as secondary CD, disable network boot ROM
-  # Index 2 to not conflict with Windows ISO at index 0
+  # VirtIO drivers ISO mounted as secondary CD
   qemuargs = [
     ["-drive", "file=${var.oemdrv_iso},index=2,media=cdrom"],
-    ["-global", "virtio-net-pci.romfile="],
   ]
 
-  # Boot Configuration
-  # Increase wait time and press key to skip "Press any key to boot from CD"
-  boot_wait    = "6s"
-  boot_command = ["<spacebar><spacebar><spacebar>"]
+  # Boot Configuration - wait for BIOS/bootloader
+  boot_wait    = "5s"
+  boot_command = ["<spacebar><spacebar>"]
 
   # WinRM Communication
   communicator   = "winrm"
