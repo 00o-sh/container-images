@@ -109,11 +109,9 @@ source "qemu" "windows-server-2022" {
   efi_firmware_code = var.efi_firmware_code
   efi_firmware_vars = var.efi_firmware_vars
 
-  # Boot from CD-ROM first (d=cdrom), not network
-  boot_order = "dc"
-
   # OEMDRV ISO contains VirtIO drivers + autounattend.xml (created by workflow)
   # Mounted at index 1 = E: drive, matching paths in autounattend.xml
+  # Boot from CD-ROM (d) first, not network
   qemuargs = [
     ["-boot", "order=d,menu=off"],
     ["-drive", "file=${var.oemdrv_iso},media=cdrom,index=1"],
