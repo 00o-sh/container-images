@@ -3,6 +3,40 @@ set -e
 
 cd "$(dirname "$0")"
 
+# Install dependencies if requested
+if [ "$1" == "--install-deps" ]; then
+    echo "Installing dependencies..."
+    sudo apt-get update
+    sudo apt-get install -y \
+        qemu-system-x86 \
+        qemu-utils \
+        ovmf \
+        p7zip-full \
+        genisoimage \
+        curl
+
+    # Install Packer if not present
+    if ! command -v packer &> /dev/null; then
+        echo "Installing Packer..."
+        PACKER_VERSION="1.10.0"
+        curl -fsSL "https://releases.hashicorp.com/packer/${PACKER_VERSION}/packer_${PACKER_VERSION}_linux_amd64.zip" -o /tmp/packer.zip
+        unzip -o /tmp/packer.zip -d /tmp
+        sudo mv /tmp/packer /usr/local/bin/
+        rm /tmp/packer.zip
+    fi
+
+    echo "Dependencies installed!"
+    echo ""
+fi
+
+# Check for required commands
+for cmd in qemu-system-x86_64 packer 7z genisoimage; do
+    if ! command -v $cmd &> /dev/null; then
+        echo "ERROR: $cmd not found. Run: $0 --install-deps"
+        exit 1
+    fi
+done
+
 # Configuration
 WINDOWS_ISO="windows-server-2022.iso"
 VIRTIO_ISO="virtio-win.iso"
