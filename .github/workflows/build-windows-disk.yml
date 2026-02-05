@@ -124,6 +124,42 @@ jobs:
             genisoimage \
             p7zip-full
 
+      - name: Find OVMF firmware paths
+        id: ovmf
+        run: |
+          # Find OVMF firmware files (different paths on different distros)
+          echo "Searching for OVMF firmware..."
+
+          # Try common paths for OVMF_CODE
+          for path in \
+            "/usr/share/OVMF/OVMF_CODE_4M.fd" \
+            "/usr/share/OVMF/OVMF_CODE.fd" \
+            "/usr/share/edk2/ovmf/OVMF_CODE.fd" \
+            "/usr/share/qemu/OVMF_CODE.fd"; do
+            if [ -f "$path" ]; then
+              echo "Found OVMF_CODE at: $path"
+              echo "efi_code=$path" >> $GITHUB_OUTPUT
+              break
+            fi
+          done
+
+          # Try common paths for OVMF_VARS
+          for path in \
+            "/usr/share/OVMF/OVMF_VARS_4M.fd" \
+            "/usr/share/OVMF/OVMF_VARS.fd" \
+            "/usr/share/edk2/ovmf/OVMF_VARS.fd" \
+            "/usr/share/qemu/OVMF_VARS.fd"; do
+            if [ -f "$path" ]; then
+              echo "Found OVMF_VARS at: $path"
+              echo "efi_vars=$path" >> $GITHUB_OUTPUT
+              break
+            fi
+          done
+
+          # List what we found
+          echo "Available OVMF files:"
+          find /usr/share -name "OVMF*" -o -name "ovmf*" 2>/dev/null | head -20 || true
+
       - name: Install Packer
         run: |
           curl -fsSL https://releases.hashicorp.com/packer/${{ env.PACKER_VERSION }}/packer_${{ env.PACKER_VERSION }}_linux_amd64.zip -o packer.zip
@@ -168,6 +204,7 @@ jobs:
         working-directory: packer-windows-server
         run: |
           echo "Starting Packer build with ${{ steps.accel.outputs.accelerator }} accelerator..."
+          echo "EFI firmware: ${{ steps.ovmf.outputs.efi_code }}"
           echo "This may take several hours in TCG mode."
 
           packer build \
@@ -175,6 +212,8 @@ jobs:
             -var "iso_checksum=none" \
             -var "virtio_iso_url=virtio-win.iso" \
             -var "accelerator=${{ steps.accel.outputs.accelerator }}" \
+            -var "efi_firmware_code=${{ steps.ovmf.outputs.efi_code }}" \
+            -var "efi_firmware_vars=${{ steps.ovmf.outputs.efi_vars }}" \
             -var "headless=true" \
             -on-error=abort \
             windows-server-2022.pkr.hcl

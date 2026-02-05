@@ -58,6 +58,18 @@ variable "accelerator" {
   default     = "kvm"
 }
 
+variable "efi_firmware_code" {
+  type        = string
+  description = "Path to OVMF firmware code"
+  default     = "/usr/share/OVMF/OVMF_CODE_4M.fd"
+}
+
+variable "efi_firmware_vars" {
+  type        = string
+  description = "Path to OVMF firmware vars"
+  default     = "/usr/share/OVMF/OVMF_VARS_4M.fd"
+}
+
 variable "winrm_username" {
   type    = string
   default = "Administrator"
@@ -92,9 +104,13 @@ source "qemu" "windows-server-2022" {
   net_device = "virtio-net"
 
   # UEFI Boot (required for Windows Server)
-  machine_type = "q35"
+  machine_type      = "q35"
+  efi_boot          = true
+  efi_firmware_code = var.efi_firmware_code
+  efi_firmware_vars = var.efi_firmware_vars
+
+  # Additional drives for VirtIO drivers and autounattend
   qemuargs = [
-    ["-bios", "/usr/share/OVMF/OVMF_CODE.fd"],
     ["-drive", "file=${var.virtio_iso_url},media=cdrom,index=1"],
     ["-drive", "file=output-drivers/oemdrv.iso,media=cdrom,index=2"],
   ]
