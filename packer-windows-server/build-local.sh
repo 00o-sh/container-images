@@ -13,7 +13,8 @@ if [ "$1" == "--install-deps" ]; then
         ovmf \
         p7zip-full \
         genisoimage \
-        curl
+        curl \
+        unzip
 
     # Install Packer if not present
     if ! command -v packer &> /dev/null; then
